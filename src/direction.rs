@@ -15,7 +15,7 @@ pub use self::Direction::*;
 impl Direction {
     /// Return the unit vector in the given direction
     #[inline]
-    pub fn unit_vec(&self) -> Vector {
+    pub fn unit_vec(self) -> Vector {
         match self {
             Up => Vector::upward(1),
             Down => Vector::downward(1),
@@ -26,7 +26,7 @@ impl Direction {
 
     /// True if this is Up or Down
     #[inline]
-    pub fn is_vertical(&self) -> bool {
+    pub fn is_vertical(self) -> bool {
         match self {
             Up | Down => true,
             Left | Right => false,
@@ -35,13 +35,13 @@ impl Direction {
 
     /// True if this is Left or Right
     #[inline]
-    pub fn is_horizontal(&self) -> bool {
+    pub fn is_horizontal(self) -> bool {
         !self.is_vertical()
     }
 
     /// Reverse this direction (Up -> Down, etc)
     #[inline]
-    pub fn reverse(&self) -> Direction {
+    pub fn reverse(self) -> Direction {
         match self {
             Up => Down,
             Down => Up,
@@ -52,7 +52,7 @@ impl Direction {
 
     /// Rotate this direction clockwise
     #[inline]
-    pub fn clockwise(&self) -> Direction {
+    pub fn clockwise(self) -> Direction {
         match self {
             Up => Right,
             Right => Down,
@@ -63,7 +63,7 @@ impl Direction {
 
     /// Rotate this direction counterclockwise
     #[inline]
-    pub fn counter_clockwise(&self) -> Direction {
+    pub fn counter_clockwise(self) -> Direction {
         match self {
             Up => Left,
             Left => Down,

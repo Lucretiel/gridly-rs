@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use derive_more::*;
 
@@ -43,10 +43,6 @@ macro_rules! make_component {
             PartialOrd,
             Ord,
             Hash,
-            Add,
-            AddAssign,
-            Sub,
-            SubAssign,
             Mul,
             MulAssign,
             Neg,
@@ -63,6 +59,35 @@ macro_rules! make_component {
                 self.combine(rhs)
             }
         }
+
+        impl<T: Into<$Name>> Add<T> for $Name {
+            type Output = $Name;
+
+            fn add(self, rhs: T) -> Self {
+                $Name(self.0 + rhs.into().0)
+            }
+        }
+
+        impl<T: Into<$Name>> AddAssign<T> for $Name {
+            fn add_assign(&mut self, rhs: T) {
+                self.0 += rhs.into().0
+            }
+        }
+
+        impl<T: Into<$Name>> Sub<T> for $Name {
+            type Output = $Name;
+
+            fn sub(self, rhs: T) -> Self {
+                $Name(self.0 - rhs.into().0)
+            }
+        }
+
+        impl<T: Into<$Name>> SubAssign<T> for $Name {
+            fn sub_assign(&mut self, rhs: T) {
+                self.0 -= rhs.into().0
+            }
+        }
+
 
         impl Component for $Name {
             type Converse = $Converse;

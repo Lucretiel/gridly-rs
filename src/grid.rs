@@ -1,5 +1,3 @@
-use std::ops::{Index, IndexMut};
-
 use derive_more::*;
 
 use crate::location::{Location, Row, Column};
