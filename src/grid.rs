@@ -1,7 +1,7 @@
 use derive_more::*;
 
-use crate::location::{Location, Row, Column, Component as LocComponent};
-use crate::vector::{Vector, Rows, Columns};
+use crate::location::{Column, Component as LocComponent, Location, Row};
+use crate::vector::{Columns, Rows, Vector};
 
 /// Error indicating that a Row or Column was out of bounds.
 ///
@@ -18,7 +18,7 @@ pub enum RangeError<T: LocComponent> {
     /// The given row or column was too high. The given value in the error is
     /// the maximum row or column, exclusive (that is, a value *equal* to the
     /// error value is considered too high).
-    TooHigh(T) ,
+    TooHigh(T),
 }
 
 #[derive(Debug, Copy, Clone, From)]

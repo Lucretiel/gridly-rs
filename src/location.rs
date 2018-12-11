@@ -3,9 +3,9 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use derive_more::*;
 
-use crate::vector::{Component as VecComponent, Rows, Columns, Vector};
 use crate::direction::*;
 use crate::grid::GridBounds;
+use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 
 // TODO: add additional implied traits
 
@@ -104,8 +104,8 @@ macro_rules! make_component {
     }
 }
 
-make_component!{Row, Column, Rows, row, (self, other) => (self, other), "row"}
-make_component!{Column, Row, Columns, column, (self, other) => (other, self), "column"}
+make_component! {Row, Column, Rows, row, (self, other) => (self, other), "row"}
+make_component! {Column, Row, Columns, column, (self, other) => (other, self), "column"}
 
 /// A location on a grid
 ///
@@ -200,7 +200,7 @@ impl<T: Into<Vector>> SubAssign<T> for Location {
 /// TODO: confirm that the lifetime bounds are effective
 /// TODO: integrate this struct into the Grid types
 #[derive(Debug, Clone)]
-pub struct CheckedLocation<'a, T: GridBounds>{
+pub struct CheckedLocation<'a, T: GridBounds> {
     location: Location,
-    grid: PhantomData<&'a T>
+    grid: PhantomData<&'a T>,
 }

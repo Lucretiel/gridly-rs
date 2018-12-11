@@ -2,8 +2,8 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use derive_more::*;
 
-use crate::location::{Component as LocComponent, Row, Column};
 use crate::direction::*;
+use crate::location::{Column, Component as LocComponent, Row};
 
 //TODO: Add all the remaining traits to Component
 //
@@ -118,8 +118,8 @@ macro_rules! make_component {
     }
 }
 
-make_component!{Rows, Columns, Row, rows, (self, other) => (self, other), "rows"}
-make_component!{Columns, Rows, Column, columns, (self, other) => (other, self), "columns"}
+make_component! {Rows, Columns, Row, rows, (self, other) => (self, other), "rows"}
+make_component! {Columns, Rows, Column, columns, (self, other) => (other, self), "columns"}
 
 // TODO: constify all of these methods
 
@@ -129,18 +129,7 @@ make_component!{Columns, Rows, Column, columns, (self, other) => (other, self), 
 /// supports arithmetic operations with itself, as well as anything which can
 /// be converted into a Vector. Currently, [`Rows`], [`Columns`], and [`Direction`]
 /// all have this property, as well as a tuple of (Rows, Columns).
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    Mul,
-    MulAssign,
-    Neg,
-)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, Mul, MulAssign, Neg)]
 pub struct Vector {
     pub rows: Rows,
     pub columns: Columns,
@@ -160,17 +149,17 @@ impl Vector {
         a.combine(b)
     }
 
-    pub  fn zero() -> Vector {
+    pub fn zero() -> Vector {
         Vector::new(0, 0)
     }
 
     /// Create an upward pointing vector of the given size
-    pub  fn upward(size: isize) -> Vector {
+    pub fn upward(size: isize) -> Vector {
         Vector::new(-size, 0)
     }
 
     /// Create a downward pointing vector of the given size
-    pub  fn downward(size: isize) -> Vector {
+    pub fn downward(size: isize) -> Vector {
         Vector::new(size, 0)
     }
 
