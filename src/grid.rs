@@ -1,14 +1,24 @@
 use derive_more::*;
 
-use crate::location::{Location, Row, Column};
+use crate::location::{Location, Row, Column, Component as LocComponent};
 use crate::vector::{Vector, Rows, Columns};
 
 /// Error indicating that a Row or Column was out of bounds.
+///
+///  Note that the bounds expressed in this error are half inclusive; that is,
+///  the lower bound in TooLow is an inclusive lower bound, but the upper bound
+///  in TooHigh is an exclusive upper bound. This is consistent with the
+///  conventional range representation of `low..high`
 #[derive(Debug, Copy, Clone)]
-pub enum RangeError<T> {
-    /// The given row or columns was too low. This
+pub enum RangeError<T: LocComponent> {
+    /// The given row or column was too low. The value in the error is the
+    /// minimum row or column, inclusive.
     TooLow(T),
-    TooHigh(T),
+
+    /// The given row or column was too high. The given value in the error is
+    /// the maximum row or column, exclusive (that is, a value *equal* to the
+    /// error value is considered too high).
+    TooHigh(T) ,
 }
 
 #[derive(Debug, Copy, Clone, From)]
@@ -63,7 +73,7 @@ pub trait GridBounds {
         }
         let max_row = min_row + self.num_rows();
         if row >= max_row {
-            return Err(RangeError::TooHigh(max_row - 1));
+            return Err(RangeError::TooHigh(max_row));
         }
         Ok(row)
     }
@@ -84,7 +94,7 @@ pub trait GridBounds {
         }
         let max_column = min_column + self.num_columns();
         if column >= max_column {
-            return Err(RangeError::TooHigh(max_column - 1));
+            return Err(RangeError::TooHigh(max_column));
         }
         Ok(column)
     }

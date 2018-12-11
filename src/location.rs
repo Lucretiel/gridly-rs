@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use core::marker::PhantomData;
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use derive_more::*;
 
@@ -7,11 +7,13 @@ use crate::vector::{Component as VecComponent, Rows, Columns, Vector};
 use crate::direction::*;
 use crate::grid::GridBounds;
 
+// TODO: add additional implied traits
+
 /// A component of a [`Location`]
 ///
 /// This trait comprises a component of a [`Location`], which may be either a
 /// [`Row`] or a [`Column`]
-pub trait Component: Sized + From<isize> + Into<isize>  {
+pub trait Component: Sized + From<isize> + Into<isize> + Copy {
     /// The converse component ([`Row`] to [`Column`], or vice versa)
     type Converse: Component;
 
@@ -23,6 +25,9 @@ pub trait Component: Sized + From<isize> + Into<isize>  {
 
     /// Combine this component with its converse to create a [`Location`]
     fn combine(self, other: Self::Converse) -> Location;
+
+    /// Return the lowercase name of this component type– "row" or "column"
+    fn name() -> &'static str;
 }
 
 macro_rules! make_component {
@@ -32,7 +37,8 @@ macro_rules! make_component {
         $Distance:ident,
         $from_loc:ident,
         ($self:ident, $other:ident) =>
-        ($first:ident, $second:ident)
+        ($first:ident, $second:ident),
+        $name:expr
     ) => {
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
         #[repr(transparent)]
@@ -81,6 +87,7 @@ macro_rules! make_component {
             type Converse = $Converse;
             type Distance = $Distance;
 
+            #[inline]
             fn from_location(loc: &Location) -> Self {
                 loc.$from_loc
             }
@@ -88,12 +95,17 @@ macro_rules! make_component {
             fn combine($self, $other: Self::Converse) -> Location {
                 Location::new($first, $second)
             }
+
+            #[inline(always)]
+            fn name() -> &'static str {
+                $name
+            }
         }
     }
 }
 
-make_component!{Row, Column, Rows, row, (self, other) => (self, other)}
-make_component!{Column, Row, Columns, column, (self, other) => (other, self)}
+make_component!{Row, Column, Rows, row, (self, other) => (self, other), "row"}
+make_component!{Column, Row, Columns, column, (self, other) => (other, self), "column"}
 
 /// A location on a grid
 ///

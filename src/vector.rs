@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use derive_more::*;
 
@@ -23,6 +23,12 @@ pub trait Component: Sized + From<isize> + Into<isize> {
 
     /// Create a vector from a Row and Column
     fn combine(self, other: Self::Converse) -> Vector;
+
+    /// Return the lowercase name of this type of component, "rows" or "columns".
+    ///
+    /// In the future, better Debug or Display implementations will be added
+    /// that correctly pluralize this value.
+    fn name() -> &'static str;
 }
 
 macro_rules! make_component {
@@ -32,7 +38,8 @@ macro_rules! make_component {
         $Point:ident,
         $from_vec:ident,
         ($self:ident, $other:ident) =>
-        ($first:ident, $second:ident)
+        ($first:ident, $second:ident),
+        $name: expr
     ) => {
         #[derive(
             Debug,
@@ -103,18 +110,25 @@ macro_rules! make_component {
             fn combine($self, $other: $Converse) -> Vector {
                 Vector::new($first, $second)
             }
+
+            fn name() -> &'static str {
+                $name
+            }
         }
     }
 }
 
-make_component!{Rows, Columns, Row, rows, (self, other) => (self, other)}
-make_component!{Columns, Rows, Column, columns, (self, other) => (other, self)}
+make_component!{Rows, Columns, Row, rows, (self, other) => (self, other), "rows"}
+make_component!{Columns, Rows, Column, columns, (self, other) => (other, self), "columns"}
+
+// TODO: constify all of these methods
 
 /// A measurement of distance between two [`Location`]s
 ///
 /// A vector is the measurement of distance between two [`Location`]s. It
-/// supports arithmetic operations with itself, and also with [`Direction`]s
-/// (which are considered to be length 1 vectors in the given direction)
+/// supports arithmetic operations with itself, as well as anything which can
+/// be converted into a Vector. Currently, [`Rows`], [`Columns`], and [`Direction`]
+/// all have this property, as well as a tuple of (Rows, Columns).
 #[derive(
     Debug,
     Clone,
@@ -146,17 +160,17 @@ impl Vector {
         a.combine(b)
     }
 
-    pub fn zero() -> Vector {
+    pub  fn zero() -> Vector {
         Vector::new(0, 0)
     }
 
     /// Create an upward pointing vector of the given size
-    pub fn upward(size: isize) -> Vector {
+    pub  fn upward(size: isize) -> Vector {
         Vector::new(-size, 0)
     }
 
     /// Create a downward pointing vector of the given size
-    pub fn downward(size: isize) -> Vector {
+    pub  fn downward(size: isize) -> Vector {
         Vector::new(size, 0)
     }
 
@@ -170,13 +184,14 @@ impl Vector {
         Vector::new(0, size)
     }
 
-    pub fn in_direction(direction: Direction, distance: isize) -> Vector {
-        direction.unit_vec() * distance
+    /// Create a vector of the given size in the given direction
+    pub fn in_direction(direction: Direction, length: isize) -> Vector {
+        direction.sized_vec(length)
     }
 
     /// Return the Manhattan length of the vector
     ///
-    /// The Manhattan length of a vector is the some of the absolute values of
+    /// The Manhattan length of a vector is the sum of the absolute values of
     /// its components
     pub fn manhattan_length(&self) -> isize {
         self.rows.0.abs() + self.columns.0.abs()
@@ -195,10 +210,7 @@ impl Vector {
 
     // Return a new vector, facing the opposite direction of this one
     pub fn reverse(&self) -> Vector {
-        Vector {
-            rows: -self.rows,
-            columns: -self.columns,
-        }
+        Vector::new(-self.rows, -self.columns)
     }
 
     pub fn get_component<T: Component>(&self) -> T {
@@ -215,6 +227,12 @@ impl From<Rows> for Vector {
 impl From<Columns> for Vector {
     fn from(columns: Columns) -> Self {
         Vector::new(0, columns)
+    }
+}
+
+impl From<Direction> for Vector {
+    fn from(direction: Direction) -> Self {
+        direction.unit_vec()
     }
 }
 

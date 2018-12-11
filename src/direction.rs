@@ -1,4 +1,4 @@
-use std::ops::Neg;
+use core::ops::Neg;
 
 use crate::vector::Vector;
 
@@ -13,15 +13,20 @@ pub enum Direction {
 pub use self::Direction::*;
 
 impl Direction {
+    /// Return a vector with the given length in this direction
+    pub fn sized_vec(self, length: isize) -> Vector {
+        match self {
+            Up => Vector::upward(length),
+            Down => Vector::downward(length),
+            Left => Vector::leftward(length),
+            Right => Vector::rightward(length),
+        }
+    }
+
     /// Return the unit vector in the given direction
     #[inline]
     pub fn unit_vec(self) -> Vector {
-        match self {
-            Up => Vector::upward(1),
-            Down => Vector::downward(1),
-            Left => Vector::leftward(1),
-            Right => Vector::rightward(1),
-        }
+        self.sized_vec(1)
     }
 
     /// True if this is Up or Down
