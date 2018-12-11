@@ -30,6 +30,7 @@ pub trait Component: Sized + From<isize> + Into<isize> + Copy {
     fn name() -> &'static str;
 }
 
+// TODO: add docstrings to these. Perhaps refer back to Component
 macro_rules! make_component {
     (
         $Name:ident,

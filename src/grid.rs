@@ -27,6 +27,11 @@ pub enum LocationRangeError {
     Column(RangeError<Column>),
 }
 
+/// High-level trait implementing grid sizes and boundary checking.
+///
+/// This trait doesn't provide any direct grid functionality, but instead
+/// provides the bounds checking which is generic to all of the different
+/// kinds of grid ([`Grid`], [`GridAdapter`]).
 pub trait GridBounds {
     /// Return the index of the topmost row of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
@@ -105,8 +110,12 @@ pub trait GridBounds {
         self.check_column(column).is_ok()
     }
 
-    /// Check that a location is inside the bounds of this grid. Returns the
-    /// Location if successful, or an error describing the boundary error if not.
+    /// Check that a location is inside the bounds of this grid.
+    ///
+    /// Returns the Location if successful, or an error describing the boundary
+    /// error if not. This function is intended to help write more expressive code;
+    /// ie, `grid.check_location(loc).and_then(|loc| ...)`. Note that the
+    /// safe grid interfaces are guarenteed to be bounds checked, where relevant.
     fn check_location(&self, loc: impl Into<Location>) -> Result<Location, LocationRangeError> {
         let loc = loc.into();
         self.check_row(loc.row)?;
@@ -123,10 +132,16 @@ pub trait GridBounds {
 pub trait Grid: GridBounds {
     type Item;
 
+    // TODO: replace this with CheckedLocation. Will probably need a few different
+    // types for mutable, immutable, and value access.
+
     /// Get a reference to a cell. This function assumes that all bounds
-    /// checking has already been completed.
+    /// checking has already been completed. In the future, we'll use typed and
+    /// lifetime-bounded CheckedLocation types to enforce this more strictly at
+    /// compile time.
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
 
+    /// Get a reference to a cell in a grid.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, LocationRangeError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked(&loc) })
