@@ -5,16 +5,17 @@ use derive_more::*;
 use crate::location::{Component as LocComponent, Row, Column};
 use crate::direction::*;
 
+//TODO: Add all the remaining traits to Component
+//
 /// A component of a [`Vector`]
 ///
-/// This trait comprises a component of a [`Vector`], which may be either a row
-/// or a column. This trait is provided as an aid to code that is generic over
-/// Rows or Columns.
+/// This trait comprises a component of a [`Vector`], which may be either [`Rows`]
+/// or a [`Columns`].
 pub trait Component: Sized + From<isize> + Into<isize> {
     /// The converse component ([`Rows`] to [`Columns`] or vice versa)
     type Converse: Component;
 
-    /// The assoicated location component type
+    /// The assoicated location component type ([`Row`] or [`Column`])
     type Point: LocComponent;
 
     /// Get this compnent from a [`Vector`]
@@ -52,6 +53,8 @@ macro_rules! make_component {
         #[repr(transparent)]
         pub struct $Name(pub isize);
 
+        /// Adding a component to its converse (ie, [`Rows`] to [`Columns`])
+        /// creates a Vector
         impl Add<$Converse> for $Name {
             type Output = Vector;
 

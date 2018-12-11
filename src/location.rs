@@ -1,16 +1,21 @@
+use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use derive_more::*;
 
 use crate::vector::{Component as VecComponent, Rows, Columns, Vector};
-use crate::direction*;
+use crate::direction::*;
+use crate::grid::GridBounds;
 
-/// A component of a [`Location`], either a [`Row`] or a [`Columns`]
-pub trait Component: Sized + From<isize> + Into<isize> {
+/// A component of a [`Location`]
+///
+/// This trait comprises a component of a [`Location`], which may be either a
+/// [`Row`] or a [`Column`]
+pub trait Component: Sized + From<isize> + Into<isize>  {
     /// The converse component ([`Row`] to [`Column`], or vice versa)
     type Converse: Component;
 
-    /// The associated vector component
+    /// The associated vector component ([`Rows`] or [`Columns`])
     type Distance: VecComponent;
 
     /// Get this component type from a [`Location`]
@@ -33,6 +38,8 @@ macro_rules! make_component {
         #[repr(transparent)]
         pub struct $Name(pub isize);
 
+        /// Adding a component to its converse (ie, a [`Row`] to a [`Column`])
+        /// produces a [`Location`]
         impl Add<$Converse> for $Name {
             type Output = Location;
 
@@ -88,6 +95,13 @@ macro_rules! make_component {
 make_component!{Row, Column, Rows, row, (self, other) => (self, other)}
 make_component!{Column, Row, Columns, column, (self, other) => (other, self)}
 
+/// A location on a grid
+///
+/// A location is the primary indexing type for a Grid, and represents a single
+/// cell on that grid. It is comprised of a Row and a Column. By convention,
+/// increasing rows count downward and increasing columns count rightward.
+///
+/// Locations support arithmetic operations with Vectors.
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
 pub struct Location {
     pub row: Row,
@@ -100,10 +114,6 @@ impl Location {
             row: row.into(),
             column: column.into(),
         }
-    }
-
-    pub fn origin() -> Self {
-        Location::new(0, 0)
     }
 
     pub fn get_component<T: Component>(&self) -> T {
@@ -169,4 +179,16 @@ impl<T: Into<Vector>> SubAssign<T> for Location {
         self.row -= rhs.rows;
         self.column -= rhs.columns;
     }
+}
+
+/// A location that has passed a bounds check for a given grid. This struct
+/// has no public constructors; it can only be created by the range checkers
+/// of GridBounds.
+///
+/// TODO: confirm that the lifetime bounds are effective
+/// TODO: integrate this struct into the Grid types
+#[derive(Debug, Clone)]
+pub struct CheckedLocation<'a, T: GridBounds>{
+    location: Location,
+    grid: PhantomData<&'a T>
 }
