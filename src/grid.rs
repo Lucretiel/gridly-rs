@@ -1,8 +1,7 @@
-use derive_more::*;
-
 use crate::location::{Column, Component as LocComponent, Location, Row};
-use crate::vector::{Columns, Rows, Vector};
+use crate::vector::{Columns, Rows, Vector, Component as VecComponent};
 
+//TODO: separate type for dimensions; essentially an unsigned Vector
 /// Error indicating that a Row or Column was out of bounds.
 ///
 ///  Note that the bounds expressed in this error are half inclusive; that is,
@@ -21,11 +20,24 @@ pub enum RangeError<T: LocComponent> {
     TooHigh(T),
 }
 
-#[derive(Debug, Copy, Clone, From)]
+#[derive(Debug, Copy, Clone)]
 pub enum LocationRangeError {
     Row(RangeError<Row>),
     Column(RangeError<Column>),
 }
+
+macro_rules! impl_range_err_from {
+    ($Type:ident) => {
+        impl From<RangeError<$Type>> for LocationRangeError {
+            fn from(err: RangeError<$Type>) -> Self {
+                LocationRangeError::$Type(err)
+            }
+        }
+    };
+}
+
+impl_range_err_from!{Row}
+impl_range_err_from!{Column}
 
 /// High-level trait implementing grid sizes and boundary checking.
 ///
@@ -47,6 +59,10 @@ pub trait GridBounds {
         Column(0)
     }
 
+    fn root_component<C: LocComponent>(&self) -> C {
+        C::from_location(&self.root())
+    }
+
     /// Return the root location (ie, the top left) of the grid. For most grids,
     /// this is (0, 0), but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid.
@@ -61,6 +77,10 @@ pub trait GridBounds {
     /// Get the width of the grid, in [`Columns`]. This value MUST be const for
     /// any given grid.
     fn num_columns(&self) -> Columns;
+
+    fn num_component<C: VecComponent>(&self) -> C {
+        C::from_vector(&self.dimensions())
+    }
 
     /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
     /// const for any given grid.
@@ -129,6 +149,13 @@ pub trait GridBounds {
     }
 }
 
+// TODO: Someday we'll have Generic Associated Types, at which point the Grid
+// trait will become a lot more powerful (custom item wrapper types, specialized
+// view types, etc). This might be possible today with some profoundly convoluted
+// shit, like SliceIndex::Output.
+// TODO: for the love of god, find a way to deduplicate the immutable and mutable
+// variants of everything. 2 traits, maybe? Perhaps unsafe casts under the hood?
+
 pub trait Grid: GridBounds {
     type Item;
 
@@ -140,10 +167,18 @@ pub trait Grid: GridBounds {
     /// lifetime-bounded CheckedLocation types to enforce this more strictly at
     /// compile time.
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
+    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
 
     /// Get a reference to a cell in a grid.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, LocationRangeError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked(&loc) })
     }
+
+    /// Get a mutable reference to a cell in a grid.
+    fn get_mut(&mut self, location: impl Into<Location>) -> Result<&mut Self::Item, LocationRangeError> {
+        self.check_location(location)
+            .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })
+    }
 }
+

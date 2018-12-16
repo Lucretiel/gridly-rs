@@ -1,6 +1,5 @@
-use core::ops::{Add, AddAssign, Sub, SubAssign};
-
-use derive_more::*;
+use core::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Neg};
+use core::fmt::Debug;
 
 use crate::direction::*;
 use crate::location::{Column, Component as LocComponent, Row};
@@ -11,7 +10,7 @@ use crate::location::{Column, Component as LocComponent, Row};
 ///
 /// This trait comprises a component of a [`Vector`], which may be either [`Rows`]
 /// or a [`Columns`].
-pub trait Component: Sized + From<isize> + Into<isize> {
+pub trait Component: Sized + From<isize> + Into<isize> + Copy + Ord + Eq + Debug {
     /// The converse component ([`Rows`] to [`Columns`] or vice versa)
     type Converse: Component;
 
@@ -22,7 +21,7 @@ pub trait Component: Sized + From<isize> + Into<isize> {
     fn from_vector(vector: &Vector) -> Self;
 
     /// Create a vector from a Row and Column
-    fn combine(self, other: Self::Converse) -> Vector;
+    fn combine(self, converse: Self::Converse) -> Vector;
 
     /// Return the lowercase name of this type of component, "rows" or "columns".
     ///
@@ -52,11 +51,6 @@ macro_rules! make_component {
             PartialOrd,
             Ord,
             Hash,
-            Mul,
-            MulAssign,
-            Neg,
-            From,
-            Into,
         )]
         #[repr(transparent)]
         pub struct $Name(pub isize);
@@ -72,7 +66,7 @@ macro_rules! make_component {
         }
 
         impl<T: Into<$Name>> Add<T> for $Name {
-            type Output = $Name;
+            type Output = Self;
 
             fn add(self, rhs: T) -> Self {
                 $Name(self.0 + rhs.into().0)
@@ -86,7 +80,7 @@ macro_rules! make_component {
         }
 
         impl<T: Into<$Name>> Sub<T> for $Name {
-            type Output = $Name;
+            type Output = Self;
 
             fn sub(self, rhs: T) -> Self {
                 $Name(self.0 - rhs.into().0)
@@ -99,6 +93,43 @@ macro_rules! make_component {
             }
         }
 
+        impl<T> Mul<T> for $Name
+            where isize: Mul<T, Output=isize>
+        {
+            type Output = Self;
+
+            fn mul(self, factor: T) -> Self {
+                $Name(self.0 * factor)
+            }
+        }
+
+        impl<T> MulAssign<T> for $Name
+            where isize: MulAssign<T>
+        {
+            fn mul_assign(&mut self, factor: T) {
+                self.0 *= factor
+            }
+        }
+
+        impl Neg for $Name {
+            type Output = Self;
+
+            fn neg(self) -> Self {
+                $Name(-self.0)
+            }
+        }
+
+        impl From<isize> for $Name {
+            fn from(value: isize) -> Self {
+                $Name(value)
+            }
+        }
+
+        impl From<$Name> for isize {
+            fn from(value: $Name) -> isize {
+                value.0
+            }
+        }
 
         impl Component for $Name {
             type Converse = $Converse;
@@ -130,7 +161,7 @@ make_component! {Columns, Rows, Column, columns, (self, other) => (other, self),
 /// supports arithmetic operations with itself, as well as anything which can
 /// be converted into a Vector. Currently, [`Rows`], [`Columns`], and [`Direction`]
 /// all have this property, as well as a tuple of (Rows, Columns).
-#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, Mul, MulAssign, Neg)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
 pub struct Vector {
     pub rows: Rows,
     pub columns: Columns,
@@ -263,5 +294,32 @@ impl<T: Into<Vector>> SubAssign<T> for Vector {
         let rhs = rhs.into();
         self.rows -= rhs.rows;
         self.columns -= rhs.columns;
+    }
+}
+
+impl<T: Copy> Mul<T> for Vector
+    where isize: Mul<T, Output=isize>
+{
+    type Output = Vector;
+
+    fn mul(self, factor: T) -> Vector {
+        Vector::new(self.rows * factor, self.columns * factor)
+    }
+}
+
+impl<T: Copy> MulAssign<T> for Vector
+    where isize: MulAssign<T>
+{
+    fn mul_assign(&mut self, factor: T) {
+        self.rows *= factor;
+        self.columns *= factor;
+    }
+}
+
+impl Neg for Vector {
+    type Output = Vector;
+
+    fn neg(self) -> Vector {
+        Vector::new(-self.rows, -self.columns)
     }
 }

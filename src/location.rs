@@ -1,10 +1,10 @@
+use core::ops::Range;
+use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
-use derive_more::*;
-
 use crate::direction::*;
-use crate::grid::GridBounds;
+use crate::grid::{GridBounds, RangeError};
 use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 
 // TODO: add additional implied traits
@@ -13,7 +13,15 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 ///
 /// This trait comprises a component of a [`Location`], which may be either a
 /// [`Row`] or a [`Column`]
-pub trait Component: Sized + From<isize> + Into<isize> + Copy {
+pub trait Component:
+    Sized +
+    From<isize> +
+    Into<isize> +
+    Copy +
+    Debug +
+    Ord +
+    Eq +
+{
     /// The converse component ([`Row`] to [`Column`], or vice versa)
     type Converse: Component;
 
@@ -28,6 +36,12 @@ pub trait Component: Sized + From<isize> + Into<isize> + Copy {
 
     /// Return the lowercase name of this component type– "row" or "column"
     fn name() -> &'static str;
+
+    /// Runs grid.check_row or grid.check_column on this component
+    fn check_against<G: GridBounds>(self, grid: &G) -> Result<Self, RangeError<Self>>;
+
+    /// Add a distance to this component
+    fn add(self, amount: impl Into<Self::Distance>) -> Self;
 }
 
 // TODO: add docstrings to these. Perhaps refer back to Component
@@ -39,9 +53,10 @@ macro_rules! make_component {
         $from_loc:ident,
         ($self:ident, $other:ident) =>
         ($first:ident, $second:ident),
-        $name:expr
+        $name:expr,
+        $in_bounds_method:ident
     ) => {
-        #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
+        #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[repr(transparent)]
         pub struct $Name(pub isize);
 
@@ -83,6 +98,17 @@ macro_rules! make_component {
             }
         }
 
+        impl From<isize> for $Name {
+            fn from(value: isize) -> Self {
+                $Name(value)
+            }
+        }
+
+        impl From<$Name> for isize {
+            fn from(value: $Name) -> isize {
+                value.0
+            }
+        }
 
         impl Component for $Name {
             type Converse = $Converse;
@@ -101,12 +127,70 @@ macro_rules! make_component {
             fn name() -> &'static str {
                 $name
             }
+
+            fn check_against<G: GridBounds>(self, grid: &G) -> Result<Self, RangeError<Self>> {
+                grid.$in_bounds_method(self)
+            }
+
+            fn add(self, distance: impl Into<Self::Distance>) -> Self {
+                self + distance.into()
+            }
         }
     }
 }
 
-make_component! {Row, Column, Rows, row, (self, other) => (self, other), "row"}
-make_component! {Column, Row, Columns, column, (self, other) => (other, self), "column"}
+make_component! {Row, Column, Rows, row, (self, other) => (self, other), "row", check_row}
+make_component! {Column, Row, Columns, column, (self, other) => (other, self), "column", check_column}
+
+pub struct ComponentRange<C> {
+    range: Range<isize>,
+    phanton: PhantomData<C>,
+}
+
+impl<C: Component> ComponentRange<C> {
+    pub fn new(start: C, end: C) -> Option<Self> {
+        let start = start.into();
+        let end = end.into();
+
+        if start < end {
+            Some(ComponentRange{range: Range{start, end}, phanton: PhantomData}   )
+        } else {
+            None
+        }
+    }
+
+    pub fn span(start: C, distance: C::Distance) -> Option<Self> {
+        if distance.into() >= 0 {
+            Self::new(start, start.add(distance))
+        } else {
+            None
+        }
+    }
+
+    pub fn start(&self) -> C {
+        self.range.start.into()
+    }
+
+    pub fn end(&self) -> C {
+        self.range.end.into()
+    }
+}
+
+// TODO: add a bunch more iterator methods that forward to self.range.
+impl<C: Component> Iterator for ComponentRange<C> {
+    type Item = C;
+
+    fn next(&mut self) -> Option<C> {
+        self.range.next().map(C::from)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
+    }
+}
+
+pub type RowRange = ComponentRange<Row>;
+pub type ColumnRange = ComponentRange<Column>;
 
 /// A location on a grid
 ///

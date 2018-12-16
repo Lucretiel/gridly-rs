@@ -1,4 +1,4 @@
-use core::ops::Neg;
+use core::ops::{Neg, Mul};
 
 use crate::vector::Vector;
 
@@ -83,5 +83,13 @@ impl Neg for Direction {
 
     fn neg(self) -> Direction {
         self.reverse()
+    }
+}
+
+impl Mul<isize> for Direction {
+    type Output = Vector;
+
+    fn mul(self, amount: isize) -> Vector {
+        self.sized_vec(amount)
     }
 }
