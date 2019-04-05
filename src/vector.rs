@@ -10,7 +10,18 @@ use crate::location::{Column, Component as LocComponent, Row};
 ///
 /// This trait comprises a component of a [`Vector`], which may be either [`Rows`]
 /// or a [`Columns`].
-pub trait Component: Sized + From<isize> + Into<isize> + Copy + Ord + Eq + Debug {
+pub trait Component:
+    Sized +
+    From<isize> +
+    Into<isize> +
+    Copy +
+    Ord +
+    Eq +
+    Debug +
+    Add +
+    Sub +
+    Default
+{
     /// The converse component ([`Rows`] to [`Columns`] or vice versa)
     type Converse: Component;
 
@@ -24,10 +35,9 @@ pub trait Component: Sized + From<isize> + Into<isize> + Copy + Ord + Eq + Debug
     fn combine(self, converse: Self::Converse) -> Vector;
 
     /// Return the lowercase name of this type of component, "rows" or "columns".
-    ///
-    /// In the future, better Debug or Display implementations will be added
-    /// that correctly pluralize this value.
     fn name() -> &'static str;
+
+    fn value(self) -> isize;
 }
 
 // TODO: add docstrings to these. Perhaps refer back to Component
@@ -145,6 +155,10 @@ macro_rules! make_component {
 
             fn name() -> &'static str {
                 $name
+            }
+
+            fn value(self) -> isize {
+                self.0
             }
         }
     }

@@ -1,3 +1,5 @@
+use core::iter::FusedIterator;
+use core::hash::Hash;
 use core::ops::Range;
 use core::fmt::Debug;
 use core::marker::PhantomData;
@@ -6,8 +8,8 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use crate::direction::*;
 use crate::grid::{GridBounds, RangeError};
 use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
-
 // TODO: add additional implied traits
+// TODO: default?
 
 /// A component of a [`Location`]
 ///
@@ -16,11 +18,11 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 pub trait Component:
     Sized +
     From<isize> +
-    Into<isize> +
     Copy +
     Debug +
     Ord +
     Eq +
+    Hash
 {
     /// The converse component ([`Row`] to [`Column`], or vice versa)
     type Converse: Component;
@@ -40,8 +42,20 @@ pub trait Component:
     /// Runs grid.check_row or grid.check_column on this component
     fn check_against<G: GridBounds>(self, grid: &G) -> Result<Self, RangeError<Self>>;
 
-    /// Add a distance to this component
+    /// Get the integer value of this component
+    fn value(self) -> isize;
+
+    /// Add a distance to this component. This is provided as a method because
+    /// Rust's trait system isn't powerful enough to allow for
+    /// `Component: Add<Self::Distance>`
     fn add(self, amount: impl Into<Self::Distance>) -> Self;
+
+    /// Find the distance between two components
+    fn distance_to(self, target: Self) -> Self::Distance {
+        target.distance_from(self)
+    }
+
+    fn distance_from(self, origin: Self) -> Self::Distance;
 }
 
 // TODO: add docstrings to these. Perhaps refer back to Component
@@ -57,7 +71,6 @@ macro_rules! make_component {
         $in_bounds_method:ident
     ) => {
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        #[repr(transparent)]
         pub struct $Name(pub isize);
 
         /// Adding a component to its converse (ie, a [`Row`] to a [`Column`])
@@ -98,6 +111,15 @@ macro_rules! make_component {
             }
         }
 
+        /// The difference between two location components is the distance between them
+        impl Sub<$Name> for $Name {
+            type Output = $Distance;
+
+            fn sub(self, rhs: Self) -> $Distance {
+                $Distance(self.0 - rhs.0)
+            }
+        }
+
         impl From<isize> for $Name {
             fn from(value: isize) -> Self {
                 $Name(value)
@@ -135,36 +157,38 @@ macro_rules! make_component {
             fn add(self, distance: impl Into<Self::Distance>) -> Self {
                 self + distance.into()
             }
+
+            fn distance_from(self, origin: Self) -> Self::Distance {
+                self - origin
+            }
+
+            fn value(self) -> isize {
+                self.0
+            }
         }
     }
 }
 
-make_component! {Row, Column, Rows, row, (self, other) => (self, other), "row", check_row}
-make_component! {Column, Row, Columns, column, (self, other) => (other, self), "column", check_column}
+make_component! {Row,    Column, Rows,    row,    (self, other) => (self, other), "row",    check_row}
+make_component! {Column, Row,    Columns, column, (self, other) => (other, self), "column", check_column}
 
-pub struct ComponentRange<C> {
+// TODO: replace this with Range<C> once Step is stabilized
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ComponentRange<C: Component> {
     range: Range<isize>,
     phanton: PhantomData<C>,
 }
 
 impl<C: Component> ComponentRange<C> {
-    pub fn new(start: C, end: C) -> Option<Self> {
-        let start = start.into();
-        let end = end.into();
-
-        if start < end {
-            Some(ComponentRange{range: Range{start, end}, phanton: PhantomData}   )
-        } else {
-            None
+    pub fn new(start: C, end: C) -> Self {
+        ComponentRange {
+            phanton: PhantomData,
+            range: start.value() .. end.value()
         }
     }
 
-    pub fn span(start: C, distance: C::Distance) -> Option<Self> {
-        if distance.into() >= 0 {
-            Self::new(start, start.add(distance))
-        } else {
-            None
-        }
+    pub fn span(start: C, size: C::Distance) -> Self {
+        Self::new(start, start.add(size))
     }
 
     pub fn start(&self) -> C {
@@ -174,20 +198,56 @@ impl<C: Component> ComponentRange<C> {
     pub fn end(&self) -> C {
         self.range.end.into()
     }
+
+    pub fn size(&self) -> C::Distance {
+        self.start().distance_to(self.end())
+    }
 }
 
 // TODO: add a bunch more iterator methods that forward to self.range.
 impl<C: Component> Iterator for ComponentRange<C> {
     type Item = C;
 
+    #[inline]
     fn next(&mut self) -> Option<C> {
         self.range.next().map(C::from)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.range.size_hint()
     }
+
+    #[inline]
+    fn nth(&mut self, n: usize) -> Option<C> {
+        self.range.nth(n).map(C::from)
+    }
+
+    #[inline]
+    fn last(self) -> Option<C> {
+        self.next_back()
+    }
+
+    #[inline]
+    fn min(self) -> Option<C> {
+        self.next()
+    }
+
+    #[inline]
+    fn max(self) -> Option<C> {
+        self.last()
+    }
 }
+
+impl<C: Component> DoubleEndedIterator for ComponentRange<C> {
+    fn next_back(&mut self) -> Option<C> {
+        self.range.next_back().map(C::from)
+    }
+}
+
+impl<C: Component> ExactSizeIterator for ComponentRange<C> {}
+impl<C: Component> FusedIterator for ComponentRange<C> {}
+// TODO: TrustedLen
 
 pub type RowRange = ComponentRange<Row>;
 pub type ColumnRange = ComponentRange<Column>;
@@ -278,14 +338,10 @@ impl<T: Into<Vector>> SubAssign<T> for Location {
     }
 }
 
-/// A location that has passed a bounds check for a given grid. This struct
-/// has no public constructors; it can only be created by the range checkers
-/// of GridBounds.
-///
-/// TODO: confirm that the lifetime bounds are effective
-/// TODO: integrate this struct into the Grid types
-#[derive(Debug, Clone)]
-pub struct CheckedLocation<'a, T: GridBounds> {
-    location: Location,
-    grid: PhantomData<&'a T>,
+impl Sub<Location> for Location {
+    type Output = Vector;
+
+    fn sub(self, rhs: Location) -> Vector {
+        Vector::new(self.row - rhs.row, self.column - rhs.column)
+    }
 }

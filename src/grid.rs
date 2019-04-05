@@ -1,4 +1,4 @@
-use crate::location::{Column, Component as LocComponent, Location, Row};
+use crate::location::{Column, Component as LocComponent, Location, Row, RowRange, ColumnRange, ComponentRange};
 use crate::vector::{Columns, Rows, Vector, Component as VecComponent};
 
 //TODO: separate type for dimensions; essentially an unsigned Vector
@@ -78,7 +78,7 @@ pub trait GridBounds {
     /// any given grid.
     fn num_columns(&self) -> Columns;
 
-    fn num_component<C: VecComponent>(&self) -> C {
+    fn dimension<C: VecComponent>(&self) -> C {
         C::from_vector(&self.dimensions())
     }
 
@@ -86,6 +86,18 @@ pub trait GridBounds {
     /// const for any given grid.
     fn dimensions(&self) -> Vector {
         self.num_rows() + self.num_columns()
+    }
+
+    fn row_range(&self) -> RowRange {
+        RowRange::span(self.root_row(), self.num_rows())
+    }
+
+    fn column_range(&self) -> ColumnRange {
+        ColumnRange::span(self.root_column(), self.num_columns())
+    }
+
+    fn range<C: LocComponent>(&self) -> ComponentRange<C> {
+        ComponentRange::span(self.root_component(), self.num_component())
     }
 
     /// Check that a row is inside the bounds described by `root_row` and
@@ -152,20 +164,14 @@ pub trait GridBounds {
 // TODO: Someday we'll have Generic Associated Types, at which point the Grid
 // trait will become a lot more powerful (custom item wrapper types, specialized
 // view types, etc). This might be possible today with some profoundly convoluted
-// shit, like SliceIndex::Output.
+// stuff, like SliceIndex::Output.
 // TODO: for the love of god, find a way to deduplicate the immutable and mutable
 // variants of everything. 2 traits, maybe? Perhaps unsafe casts under the hood?
 
 pub trait Grid: GridBounds {
     type Item;
 
-    // TODO: replace this with CheckedLocation. Will probably need a few different
-    // types for mutable, immutable, and value access.
-
-    /// Get a reference to a cell. This function assumes that all bounds
-    /// checking has already been completed. In the future, we'll use typed and
-    /// lifetime-bounded CheckedLocation types to enforce this more strictly at
-    /// compile time.
+    /// Get a reference to a cell, without doing bounds checking.
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
     unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
 

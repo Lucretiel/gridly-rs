@@ -29,7 +29,7 @@ impl Direction {
         self.sized_vec(1)
     }
 
-    /// True if this is Up or Down
+    /// True if this is `Up` or `Down`
     #[inline]
     pub fn is_vertical(self) -> bool {
         match self {
@@ -38,13 +38,13 @@ impl Direction {
         }
     }
 
-    /// True if this is Left or Right
+    /// True if this is `Left` or `Right`
     #[inline]
     pub fn is_horizontal(self) -> bool {
         !self.is_vertical()
     }
 
-    /// Reverse this direction (Up -> Down, etc)
+    /// Reverse this direction (`Up` -> `Down`, etc)
     #[inline]
     pub fn reverse(self) -> Direction {
         match self {
