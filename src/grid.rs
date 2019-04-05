@@ -97,7 +97,7 @@ pub trait GridBounds {
     }
 
     fn range<C: LocComponent>(&self) -> ComponentRange<C> {
-        ComponentRange::span(self.root_component(), self.num_component())
+        ComponentRange::span(self.root_component(), self.dimension())
     }
 
     /// Check that a row is inside the bounds described by `root_row` and
@@ -174,6 +174,7 @@ pub trait Grid: GridBounds {
     /// Get a reference to a cell, without doing bounds checking.
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
     unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
+    unsafe fn set_unchecked(&self, loc: &Location, value: Self::Item);
 
     /// Get a reference to a cell in a grid.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, LocationRangeError> {
@@ -185,6 +186,11 @@ pub trait Grid: GridBounds {
     fn get_mut(&mut self, location: impl Into<Location>) -> Result<&mut Self::Item, LocationRangeError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })
+    }
+
+    /// Set a value in a grid
+    fn set(&self, location: impl Into<Location>, value: Self::Item) -> Result<(), LocationRangeError> {
+        self.check_location(location).map(move |loc| unsafe { self.set_unchecked(&loc, value)})
     }
 }
 
