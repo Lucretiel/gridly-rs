@@ -1,13 +1,13 @@
 mod range;
 
-pub use range::{Range, RangeError, RowRange, ColumnRange, RowRangeError, ColumnRangeError};
-
 use core::fmt::Debug;
 use core::hash::Hash;
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::vector::{Columns, Component as VecComponent, Rows};
 use crate::location::Location;
+
+pub use range::{Range, RangeError, RowRange, ColumnRange, RowRangeError, ColumnRangeError};
 // TODO: add additional implied traits
 // TODO: docstrings
 

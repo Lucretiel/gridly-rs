@@ -1,3 +1,5 @@
+use core::iter::FusedIterator;
+
 use crate::location::component;
 use crate::location::{Component, Location};
 use crate::vector::Vector;
@@ -68,3 +70,13 @@ impl<C: Component> Iterator for Range<C> {
         self.range.last().map(move |idx| idx.combine(self.cross))
     }
 }
+
+impl<C: Component> DoubleEndedIterator for Range<C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.range.next_back().map(|idx| idx.combine(cross))
+    }
+}
+
+impl<C: Component> FusedIterator for Range<C> {}
+impl<C: Component> ExactSizeIterator for Range<C> {}
+// TODO: TrustedLen

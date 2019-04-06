@@ -2,9 +2,9 @@ mod component;
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-pub use component::{Columns, Component, Rows};
-
 use crate::direction::Direction;
+
+pub use component::{Columns, Component, Rows};
 
 // TODO: constify all of these methods
 

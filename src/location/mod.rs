@@ -3,11 +3,11 @@ mod range;
 
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
-pub use component::{Column, Component, Row};
-pub use range::Range;
-
 use crate::direction::Direction;
 use crate::vector::{Columns, Rows, Vector};
+
+pub use component::{Column, Component, Row};
+pub use range::Range;
 
 //TODO: separate type for dimensions; essentially an unsigned Vector
 

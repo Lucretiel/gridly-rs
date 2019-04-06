@@ -1,11 +1,15 @@
+pub mod views;
+
+use core::marker::PhantomData;
+
 use crate::location::component::{
     ColumnRange, ColumnRangeError, Range as IndexRange, RangeError, RowRange, RowRangeError,
 };
-use crate::location::{Column, Component as LocComponent, Location, Range as LocRange, Row};
+use crate::location::{Column, Component as LocComponent, Location, Row};
 use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
-use core::iter::FusedIterator;
-use core::marker::PhantomData;
-use core::ops::Index;
+
+
+use views::{GridView, GridSingleView};
 
 /// High-level trait implementing grid sizes and boundary checking.
 ///
@@ -213,170 +217,4 @@ pub trait GridExt: Grid {
     fn column(&self, column: impl Into<Column>) -> Result<ColumnView<Self>, ColumnRangeError> {
         self.single_view(column.into())
     }
-}
-
-// TODO: mutable views. Find a way to deuplicate all of this.
-pub struct GridView<'a, G: Grid + ?Sized, T: LocComponent> {
-    grid: &'a G,
-    index: PhantomData<T>,
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> GridView<'a, G, T> {
-    unsafe fn get_unchecked(&self, cross: T) -> GridSingleView<G, T> {
-        GridSingleView {
-            grid: self.grid,
-            cross,
-        }
-    }
-
-    fn get(&self, cross: impl Into<T>) -> Result<GridSingleView<G, T>, RangeError<T>> {
-        self.grid
-            .range()
-            .check(cross.into())
-            .map(move |cross| unsafe { self.get_unchecked(cross) })
-    }
-
-    fn iter(&self) -> GridIter<'a, G, T> {
-        GridIter {
-            grid: self.grid,
-            range: self.grid.range(),
-        }
-    }
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> IntoIterator for GridView<'a, G, T> {
-    type IntoIter = GridIter<'a, G, T>;
-    type Item = GridSingleView<'a, G, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<'b, 'a, G: Grid + ?Sized, T: LocComponent> IntoIterator for &'b GridView<'a, G, T> {
-    type IntoIter = GridIter<'a, G, T>;
-    type Item = GridSingleView<'a, G, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-/// An iterator over the rows or columns of a grid
-pub struct GridIter<'a, G: Grid + ?Sized, T: LocComponent> {
-    grid: &'a G,
-    range: IndexRange<T>,
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> Iterator for GridIter<'a, G, T> {
-    type Item = GridSingleView<'a, G, T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.range.next().map(|index| GridSingleView {
-            grid: self.grid,
-            index,
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.range.size_hint()
-    }
-
-    // TODO: other iterator methods
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> DoubleEndedIterator for GridIter<'a, G, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.range.next_back().map(|idx| GridSingleView {
-            grid: self.grid,
-            index: idx,
-        })
-    }
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> FusedIterator for GridIter<'a, G, T> {}
-impl<'a, G: Grid + ?Sized, T: LocComponent> ExactSizeIterator for GridIter<'a, G, T> {}
-
-// Implementor notes: a GridSingleView's index field is guaranteed to have been
-// bounds checked against the grid. Therefore, we provide unsafe constructors, and
-// then freely use unsafe accessors in the safe interface.
-pub struct GridSingleView<'a, G: Grid + ?Sized, T: LocComponent> {
-    grid: &'a G,
-    index: T,
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> GridSingleView<'a, G, T> {
-    unsafe fn new_unchecked(grid: &'a G, index: T) -> Self {
-        GridSingleView { grid, index }
-    }
-
-    fn new(grid: &'a G, index: impl Into<T>) -> Result<Self, RangeError<T>> {
-        grid.check_component(index.into())
-            .map(|index| unsafe { Self::new_unchecked(grid, index) })
-    }
-
-    pub fn index(&self) -> T {
-        self.index
-    }
-
-    pub unsafe fn get_unchecked(&self, cross: T::Converse) -> &'a G::Item {
-        self.grid.get_unchecked(&self.index.combine(cross))
-    }
-
-    pub fn get(
-        &self,
-        cross: impl Into<T::Converse>,
-    ) -> Result<&'a G::Item, RangeError<T::Converse>> {
-        self.grid
-            .check_component(cross.into())
-            .map(move |cross| unsafe { self.get_unchecked(cross) })
-    }
-
-    pub fn iter(&self) -> GridSingleIterator<'a, G, T> {
-        GridSingleIterator {
-            grid: self.grid,
-            range: self.grid.range().combine(self.index)
-        }
-    }
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> IntoIterator for GridSingleView<'a, G, T> {
-    type IntoIter = GridSingleIterator<'a, G, T>;
-    type Item = &'a G::Item;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<'b, 'a, G: Grid + ?Sized, T: LocComponent> IntoIterator for &'b GridSingleView<'a, G, T> {
-    type IntoIter = GridSingleIterator<'a, G, T>;
-    type Item = &'a G::Item;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-type RowView<'a, G> = GridSingleView<'a, G, Row>;
-type ColumnView<'a, G> = GridSingleView<'a, G, Column>;
-
-/// An iterator over a single row or column of a grid
-pub struct GridSingleIterator<'a, G: Grid + ?Sized, T: LocComponent> {
-    grid: &'a G,
-    range: LocRange<T::Converse>,
-}
-
-impl<'a, G: Grid + ?Sized, T: LocComponent> Iterator for GridSingleIterator<'a, G, T> {
-    type Item = &'a G::Item;
-
-    fn next(&mut self) -> Option<&'a G::Item> {
-        self.range.next().map(|loc| unsafe { self.grid.get_unchecked(&loc)})
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.range.size_hint()
-    }
-
-    // TODO: more methods
 }
