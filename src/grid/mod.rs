@@ -8,8 +8,7 @@ use crate::location::component::{
 use crate::location::{Column, Component as LocComponent, Location, Row};
 use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 
-
-use views::{GridView, GridSingleView};
+use views::{GridSingleView, GridView, RowsView, ColumnsView, RowView, ColumnView};
 
 /// High-level trait implementing grid sizes and boundary checking.
 ///
@@ -40,11 +39,15 @@ pub trait GridBounds {
 
     /// Get the height of the grid in [`Rows`]. This value MUST be const for
     /// any given grid.
-    fn num_rows(&self) -> Rows;
+    fn num_rows(&self) -> Rows {
+        self.dimensions().rows
+    }
 
     /// Get the width of the grid, in [`Columns`]. This value MUST be const for
     /// any given grid.
-    fn num_columns(&self) -> Columns;
+    fn num_columns(&self) -> Columns {
+        self.dimensions().columns
+    }
 
     /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
     /// const for any given grid.
@@ -57,13 +60,13 @@ pub trait GridBoundsExt: GridBounds {
     /// Return the index of the leftmost row or column of this grid.
     #[inline]
     fn root_component<C: LocComponent>(&self) -> C {
-        C::from_location(&self.root())
+        self.root().get_component()
     }
 
     /// Get the height or width of this grid.
     #[inline]
     fn dimension<C: VecComponent>(&self) -> C {
-        C::from_vector(&self.dimensions())
+        self.dimensions().get_component()
     }
 
     /// Get a Range over the row or column indexes
@@ -177,10 +180,7 @@ pub trait Grid: GridBoundsExt {
 
 pub trait GridExt: Grid {
     fn view<T: LocComponent>(&self) -> GridView<Self, T> {
-        GridView {
-            grid: self,
-            index: PhantomData,
-        }
+        GridView::new(self)
     }
     fn rows(&self) -> RowsView<Self> {
         self.view()
@@ -190,10 +190,7 @@ pub trait GridExt: Grid {
     }
 
     unsafe fn single_view_unchecked<T: LocComponent>(&self, index: T) -> GridSingleView<Self, T> {
-        GridSingleView {
-            grid: self,
-            cross: index,
-        }
+        GridSingleView::new_unchecked(self, index)
     }
     unsafe fn row_unchecked(&self, row: impl Into<Row>) -> RowView<Self> {
         self.single_view_unchecked(row.into())

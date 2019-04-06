@@ -6,40 +6,37 @@ use crate::vector::Vector;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Range<C: Component> {
-    cross: C::Converse,
-    range: component::Range<C>,
+    index: C,
+    range: component::Range<C::Converse>,
 }
 
 impl<C: Component> Range<C> {
-    pub fn new(cross: C::Converse, range: component::Range<C>) -> Self {
-        Range { cross, range }
+    pub fn new(index: C, range: component::Range<C::Converse>) -> Self {
+        Range { index, range }
     }
 
-    pub fn bounded(cross: C::Converse, start: C, end: C) -> Self {
-        Self::new(cross, component::Range::bounded(start, end))
+    pub fn bounded(index: C, start: C::Converse, end: C::Converse) -> Self {
+        Self::new(index, component::Range::bounded(start, end))
     }
 
-    pub fn span(cross: C::Converse, start: C, size: C::Distance) -> Self {
-        Self::new(cross, component::Range::span(start, size))
+    pub fn span(index: C, start: C::Converse, size: <C::Converse as Component>::Distance) -> Self {
+        Self::new(index, component::Range::span(start, size))
     }
 
-    // We return an object, rather than a reference, on the assumption that
-    // ranges are cheap to copy and that the interior range is an implementation
-    // detail that may go away
-    pub fn component_range(&self) -> component::Range<C> {
+    pub fn component_range(&self) -> component::Range<C::Converse> {
         self.range.clone()
     }
 
-    pub fn cross(&self) -> C::Converse {
-        self.cross
+    pub fn index(&self) -> C {
+        self.index
     }
 
     pub fn start(&self) -> Location {
-        self.range.start().combine(self.cross)
+        self.range.start().combine(self.index)
     }
 
     pub fn end(&self) -> Location {
-        self.range.end().combine(self.cross)
+        self.range.end().combine(self.index)
     }
 
     pub fn size(&self) -> Vector {
@@ -52,7 +49,7 @@ impl<C: Component> Iterator for Range<C> {
 
     #[inline]
     fn next(&mut self) -> Option<Location> {
-        self.range.next().map(move |idx| idx.combine(self.cross))
+        self.range.next().map(move |cross| cross.combine(self.index))
     }
 
     #[inline]
@@ -62,18 +59,18 @@ impl<C: Component> Iterator for Range<C> {
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Location> {
-        self.range.nth(n).map(move |idx| idx.combine(self.cross))
+        self.range.nth(n).map(move |cross| cross.combine(self.index))
     }
 
     #[inline]
     fn last(self) -> Option<Location> {
-        self.range.last().map(move |idx| idx.combine(self.cross))
+        self.range.last().map(move |cross| cross.combine(self.index))
     }
 }
 
 impl<C: Component> DoubleEndedIterator for Range<C> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.range.next_back().map(|idx| idx.combine(cross))
+        self.range.next_back().map(move |cross| cross.combine(self.index))
     }
 }
 

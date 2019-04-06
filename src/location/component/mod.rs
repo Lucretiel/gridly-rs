@@ -4,10 +4,10 @@ use core::fmt::Debug;
 use core::hash::Hash;
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
-use crate::vector::{Columns, Component as VecComponent, Rows};
 use crate::location::Location;
+use crate::vector::{Columns, Component as VecComponent, Rows};
 
-pub use range::{Range, RangeError, RowRange, ColumnRange, RowRangeError, ColumnRangeError};
+pub use range::{ColumnRange, ColumnRangeError, Range, RangeError, RowRange, RowRangeError};
 // TODO: add additional implied traits
 // TODO: docstrings
 
@@ -17,7 +17,7 @@ pub use range::{Range, RangeError, RowRange, ColumnRange, RowRangeError, ColumnR
 /// [`Row`] or a [`Column`]
 pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash {
     /// The converse component ([`Row`] to [`Column`], or vice versa)
-    type Converse: Component<Converse=Self>;
+    type Converse: Component<Converse = Self>;
 
     /// The associated vector component ([`Rows`] or [`Columns`])
     type Distance: VecComponent;

@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::cmp::Ordering;
 
 use crate::location::{Column, Component as LocComponent, Row};
 use crate::vector::Vector;
@@ -10,9 +11,9 @@ use crate::vector::Vector;
 ///
 /// This trait comprises a component of a [`Vector`], which may be either [`Rows`]
 /// or a [`Columns`].
-pub trait Component: Sized + From<isize> + Copy + Ord + Eq + Debug + Add + Sub + Default {
+pub trait Component: Sized + From<isize> + Copy + Ord + Eq + Debug + Add + Sub + Default + PartialEq<isize> + PartialOrd<isize> {
     /// The converse component ([`Rows`] to [`Columns`] or vice versa)
-    type Converse: Component<Converse=Self>;
+    type Converse: Component<Converse = Self>;
 
     /// The assoicated location component type ([`Row`] or [`Column`])
     type Point: LocComponent;
@@ -122,6 +123,34 @@ macro_rules! make_component {
             fn from(value: isize) -> Self {
                 $Name(value)
             }
+        }
+
+        impl PartialEq<isize> for $Name {
+            #[inline]
+            fn eq(&self, rhs: &isize) -> bool {
+                self.0 == *rhs
+            }
+
+            #[inline]
+            fn ne(&self, rhs: &isize) -> bool {
+                self.0 != *rhs
+            }
+        }
+
+        impl PartialOrd<isize> for $Name {
+            #[inline]
+            fn partial_cmp(&self, rhs: &isize) -> Option<Ordering> {
+                self.0.partial_cmp(rhs)
+            }
+
+            #[inline]
+            fn lt(&self, rhs: &isize) -> bool { self.0 < *rhs }
+            #[inline]
+            fn le(&self, rhs: &isize) -> bool { self.0 <= *rhs }
+            #[inline]
+            fn ge(&self, rhs: &isize) -> bool { self.0 >= *rhs }
+            #[inline]
+            fn gt(&self, rhs: &isize) -> bool { self.0 > *rhs }
         }
 
         impl Component for $Name {

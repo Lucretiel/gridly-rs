@@ -59,8 +59,8 @@ impl<C: Component> Range<C> {
         self.check(loc).is_ok()
     }
 
-    pub fn combine(self, cross: C::Converse) -> location::Range<C> {
-        location::Range::new(cross, self)
+    pub fn combine(self, index: C::Converse) -> location::Range<C::Converse> {
+        location::Range::new(index, self)
     }
 }
 
