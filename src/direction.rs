@@ -1,7 +1,8 @@
-use core::ops::{Neg, Mul};
+use core::ops::{Mul, Neg};
 
 use crate::vector::Vector;
 
+/// The four cardinal directions (up, down, left, right).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     Up,
