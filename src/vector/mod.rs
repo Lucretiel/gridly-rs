@@ -13,7 +13,7 @@ pub use component::{Columns, Component, Rows};
 /// A vector is the measurement of distance between two [`Location`]s. It
 /// supports arithmetic operations with itself, as well as anything which can
 /// be converted into a Vector. Currently, [`Rows`], [`Columns`], and [`Direction`]
-/// all have this property, as well as a tuple of (Rows, Columns).
+/// all have this property, as well as a tuple of (Into<Rows>, Into<Columns>).
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
 pub struct Vector {
     pub rows: Rows,
@@ -21,7 +21,7 @@ pub struct Vector {
 }
 
 impl Vector {
-    /// Create a new [Vector]
+    /// Create a new `Vector`
     pub fn new(rows: impl Into<Rows>, columns: impl Into<Columns>) -> Self {
         Vector {
             rows: rows.into(),
@@ -29,6 +29,7 @@ impl Vector {
         }
     }
 
+    /// Create a zero `Vector`
     pub fn zero() -> Vector {
         Vector::new(0, 0)
     }
@@ -82,11 +83,13 @@ impl Vector {
         Vector::new(-self.rows, -self.columns)
     }
 
+    /// Generically get either the `Rows` or `Columns` of a vector
     pub fn get_component<T: Component>(&self) -> T {
         T::from_vector(self)
     }
 }
 
+/// Convert a `Rows` or `Columns` into an equivelent Vector
 impl<C: Component> From<C> for Vector {
     #[inline]
     fn from(distance: C) -> Self {
@@ -94,6 +97,7 @@ impl<C: Component> From<C> for Vector {
     }
 }
 
+/// Convert a `Direction` into a unit vector pointing in that direction
 impl From<Direction> for Vector {
     #[inline]
     fn from(direction: Direction) -> Self {
@@ -146,6 +150,7 @@ impl<T: Into<Vector>> SubAssign<T> for Vector {
     }
 }
 
+/// Multiply a vector's components by a constant factor
 impl<T: Copy> Mul<T> for Vector
 where
     isize: Mul<T, Output = isize>,
@@ -158,6 +163,7 @@ where
     }
 }
 
+/// Multiply a vector's components by a constant factor in-place
 impl<T: Copy> MulAssign<T> for Vector
 where
     isize: MulAssign<T>,

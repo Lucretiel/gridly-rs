@@ -7,10 +7,7 @@ use crate::vector::Vector;
 
 //TODO: Add all the remaining traits to Component
 //
-/// A component of a [`Vector`]
-///
-/// This trait comprises a component of a [`Vector`], which may be either [`Rows`]
-/// or a [`Columns`].
+/// A [`Rows`] or [`Columns`] component of a [`Vector`]
 pub trait Component:
     Sized
     + From<isize>

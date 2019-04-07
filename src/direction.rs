@@ -5,9 +5,16 @@ use crate::vector::Vector;
 /// The four cardinal directions (up, down, left, right).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
+    /// The negative row direction
     Up,
+
+    /// The positive row direction
     Down,
+
+    /// The negative column direction
     Left,
+
+    /// The positive column direction
     Right,
 }
 
