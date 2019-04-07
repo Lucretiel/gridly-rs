@@ -188,7 +188,7 @@ pub trait MutGrid: Grid {
     unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
 
     /// Set the value of a cell in a location, without bounds checking the location.
-    unsafe fn set_unchecked(&mut self, loc: &Location, value: T) {
+    unsafe fn set_unchecked(&mut self, loc: &Location, value: Self::Item) {
         *self.get_unchecked_mut(loc) = value;
     }
 }
