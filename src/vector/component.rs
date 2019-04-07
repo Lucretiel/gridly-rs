@@ -1,6 +1,6 @@
+use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use core::cmp::Ordering;
 
 use crate::location::{Column, Component as LocComponent, Row};
 use crate::vector::Vector;
@@ -11,7 +11,19 @@ use crate::vector::Vector;
 ///
 /// This trait comprises a component of a [`Vector`], which may be either [`Rows`]
 /// or a [`Columns`].
-pub trait Component: Sized + From<isize> + Copy + Ord + Eq + Debug + Add + Sub + Default + PartialEq<isize> + PartialOrd<isize> {
+pub trait Component:
+    Sized
+    + From<isize>
+    + Copy
+    + Ord
+    + Eq
+    + Debug
+    + Add
+    + Sub
+    + Default
+    + PartialEq<isize>
+    + PartialOrd<isize>
+{
     /// The converse component ([`Rows`] to [`Columns`] or vice versa)
     type Converse: Component<Converse = Self>;
 
@@ -52,7 +64,6 @@ macro_rules! make_component {
             Ord,
             Hash,
         )]
-        #[repr(transparent)]
         pub struct $Name(pub isize);
 
         /// Adding a component to its converse (ie, [`Rows`] to [`Columns`])
@@ -129,11 +140,6 @@ macro_rules! make_component {
             #[inline]
             fn eq(&self, rhs: &isize) -> bool {
                 self.0 == *rhs
-            }
-
-            #[inline]
-            fn ne(&self, rhs: &isize) -> bool {
-                self.0 != *rhs
             }
         }
 

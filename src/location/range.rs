@@ -49,7 +49,9 @@ impl<C: Component> Iterator for Range<C> {
 
     #[inline]
     fn next(&mut self) -> Option<Location> {
-        self.range.next().map(move |cross| cross.combine(self.index))
+        self.range
+            .next()
+            .map(move |cross| cross.combine(self.index))
     }
 
     #[inline]
@@ -59,18 +61,23 @@ impl<C: Component> Iterator for Range<C> {
 
     #[inline]
     fn nth(&mut self, n: usize) -> Option<Location> {
-        self.range.nth(n).map(move |cross| cross.combine(self.index))
+        self.range
+            .nth(n)
+            .map(move |cross| cross.combine(self.index))
     }
 
     #[inline]
     fn last(self) -> Option<Location> {
-        self.range.last().map(move |cross| cross.combine(self.index))
+        let index = self.index;
+        self.range.last().map(move |cross| cross.combine(index))
     }
 }
 
 impl<C: Component> DoubleEndedIterator for Range<C> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.range.next_back().map(move |cross| cross.combine(self.index))
+        self.range
+            .next_back()
+            .map(move |cross| cross.combine(self.index))
     }
 }
 
