@@ -106,10 +106,10 @@ pub type ColumnRange = Range<Column>;
 
 /// Error indicating that a Row or Column was out of bounds.
 ///
-///  Note that the bounds expressed in this error are half inclusive; that is,
-///  the lower bound in TooLow is an inclusive lower bound, but the upper bound
-///  in TooHigh is an exclusive upper bound. This is consistent with the
-///  conventional range representation of `low..high`
+/// Note that the bounds expressed in this error are half inclusive; that is,
+/// the lower bound in TooLow is an inclusive lower bound, but the upper bound
+/// in TooHigh is an exclusive upper bound. This is consistent with the
+/// conventional range representation of `low..high`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RangeError<T: Component> {
     /// The given row or column was too low. The value in the error is the

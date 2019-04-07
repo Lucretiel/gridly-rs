@@ -143,7 +143,7 @@ impl<G: GridBounds> GridBoundsExt for G {}
 ///
 /// This error is returned by methods that perform bounds checking to indicate
 /// a failed bounds check. It includes the specific boundary that was violated.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LocationRangeError {
     /// The location's `Row` was out of bounds
     Row(RowRangeError),
@@ -186,6 +186,11 @@ pub trait MutGrid: Grid {
     /// of this method are allowed to assume that bounds checking has already been
     /// performed on the location.
     unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
+
+    /// Set the value of a cell in a location, without bounds checking the location.
+    unsafe fn set_unchecked(&mut self, loc: &Location, value: T) {
+        *self.get_unchecked_mut(loc) = value;
+    }
 }
 
 /// View methods for a Grid, aimed at providing support for iterating over rows,
