@@ -10,6 +10,7 @@ pub struct Range<C: Component> {
     range: component::Range<C::Converse>,
 }
 
+/// A range over a set of `Row` or `Column` indexes.
 impl<C: Component> Range<C> {
     pub fn new(index: C, range: component::Range<C::Converse>) -> Self {
         Range { index, range }

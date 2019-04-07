@@ -14,7 +14,25 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 /// This trait doesn't provide any direct grid functionality, but instead
 /// provides the bounds checking which is generic to all of the different
 /// kinds of grid.
+///
+/// Note for implementors:
 pub trait GridBounds {
+    /// Get the height of the grid in [`Rows`]. This value MUST be const for
+    /// any given grid.
+    fn num_rows(&self) -> Rows {
+        self.dimensions().rows
+    }
+
+    /// Get the width of the grid, in [`Columns`]. This value MUST be const for
+    /// any given grid.
+    fn num_columns(&self) -> Columns {
+        self.dimensions().columns
+    }
+
+    /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
+    /// const for any given grid.
+    fn dimensions(&self) -> Vector;
+
     /// Return the index of the topmost row of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid.
@@ -36,23 +54,6 @@ pub trait GridBounds {
         self.root_row() + self.root_column()
     }
 
-    /// Get the height of the grid in [`Rows`]. This value MUST be const for
-    /// any given grid.
-    fn num_rows(&self) -> Rows {
-        self.dimensions().rows
-    }
-
-    /// Get the width of the grid, in [`Columns`]. This value MUST be const for
-    /// any given grid.
-    fn num_columns(&self) -> Columns {
-        self.dimensions().columns
-    }
-
-    /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
-    /// const for any given grid.
-    fn dimensions(&self) -> Vector {
-        self.num_rows() + self.num_columns()
-    }
 }
 
 pub trait GridBoundsExt: GridBounds {
@@ -118,9 +119,16 @@ pub trait GridBoundsExt: GridBounds {
 
 impl<G: GridBounds> GridBoundsExt for G {}
 
+/// An out-of-bounds error for a Location on a grid
+///
+/// This error is returned by methods that perform bounds checking to indicate
+/// a failed bounds check. It includes the specific boundary that was violated.
 #[derive(Debug, Copy, Clone)]
 pub enum LocationRangeError {
+    /// The location's `Row` was out of bounds
     Row(RowRangeError),
+
+    /// The location's `Column` was out of bounds
     Column(ColumnRangeError),
 }
 
@@ -136,28 +144,27 @@ impl From<ColumnRangeError> for LocationRangeError {
     }
 }
 
-// TODO: Someday we'll have Generic Associated Types, at which point the Grid
-// trait will become a lot more powerful (custom item wrapper types, specialized
-// view types, etc). This might be possible today with some profoundly convoluted
-// stuff, like SliceIndex::Output.
-// TODO: for the love of god, find a way to deduplicate the immutable and mutable
-// variants of everything. 2 traits, maybe? Perhaps unsafe casts under the hood?
-
 pub trait Grid: GridBoundsExt {
     type Item;
 
-    /// Get a reference to a cell, without doing bounds checking.
+    /// Get a reference to a cell, without doing bounds checking. Implementors
+    /// of this method are allowed to assume that bounds checking has already
+    /// been performed on the location.
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
-    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
-    unsafe fn set_unchecked(&mut self, loc: &Location, value: Self::Item) {
-        *self.get_unchecked_mut(loc) = value;
-    }
 
-    /// Get a reference to a cell in a grid.
+    /// Get a reference to a cell in a grid. Returns an error if the location
+    /// is out of bounds with the specific boundary violation.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, LocationRangeError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked(&loc) })
     }
+}
+
+pub trait MutGrid: Grid {
+    /// Get a mutable reference to a cell, without doing bounds checking. Implementors
+    /// of this method are allowed to assume that bounds checking has already been
+    /// performed on the location.
+    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
 
     /// Get a mutable reference to a cell in a grid.
     fn get_mut(
@@ -167,47 +174,56 @@ pub trait Grid: GridBoundsExt {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })
     }
-
-    /// Set a value in a grid
-    fn set(
-        &mut self,
-        location: impl Into<Location>,
-        value: Self::Item,
-    ) -> Result<(), LocationRangeError> {
-        self.check_location(location)
-            .map(move |loc| unsafe { self.set_unchecked(&loc, value) })
-    }
 }
 
+/// View methods for a Grid, aimed at providing support for iterating over rows,
+/// columns, and cells inside of those views.
 pub trait GridExt: Grid {
+    // Get a view of a grid, over its rows or columns
     fn view<T: LocComponent>(&self) -> View<Self, T> {
         View::new(self)
     }
+
+    /// Get a view of a grid's rows
     fn rows(&self) -> RowsView<Self> {
         self.view()
     }
+
+    /// Get a view of a grid's columns
     fn columns(&self) -> ColumnsView<Self> {
         self.view()
     }
 
+    /// Get a view of a single row or column in a grid, without bounds checking that
+    /// row or column index.
     unsafe fn single_view_unchecked<T: LocComponent>(&self, index: T) -> SingleView<Self, T> {
         SingleView::new_unchecked(self, index)
     }
+
+    /// Get a view of a single row in a grid, without bounds checking that row's index
     unsafe fn row_unchecked(&self, row: impl Into<Row>) -> RowView<Self> {
         self.single_view_unchecked(row.into())
     }
+
+    /// Get a view of a single column in a grid, without bounds checking that column's index
     unsafe fn column_unchecked(&self, column: impl Into<Column>) -> ColumnView<Self> {
         self.single_view_unchecked(column.into())
     }
 
+    /// Get a view of a single row or column in a grid. Returns an error if the index of the
+    /// row or column is out of bounds for the grid.
     fn single_view<T: LocComponent>(&self, index: T) -> Result<SingleView<Self, T>, RangeError<T>> {
         SingleView::new(self, index)
     }
 
+    /// Get a view of a single row in a grid. Returns an error if the index of the row is
+    /// out of bounds for the grid.
     fn row(&self, row: impl Into<Row>) -> Result<RowView<Self>, RowRangeError> {
         self.single_view(row.into())
     }
 
+    /// Get a view of a single column in a grid. Returns an error if the index of the column
+    /// is out of bounds for the grid.
     fn column(&self, column: impl Into<Column>) -> Result<ColumnView<Self>, ColumnRangeError> {
         self.single_view(column.into())
     }
@@ -215,7 +231,12 @@ pub trait GridExt: Grid {
 
 impl<G: Grid> GridExt for G {}
 
-// TODO: mutable views. Find a way to deuplicate all of this.
+/// A view of the Rows or Columns in a grid.
+///
+/// This struct provides a row- or column-major view of a grid. For instance,
+/// a `View<MyGrid, Row>` is a View of all of the rows in MyGrid.
+///
+///
 pub struct View<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
     index: PhantomData<T>,
@@ -229,6 +250,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
         }
     }
 
+    /// Get a view into a particular
     pub unsafe fn get_unchecked(&self, index: T) -> SingleView<G, T> {
         SingleView::new_unchecked(self.grid, index)
     }

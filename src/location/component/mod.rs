@@ -14,7 +14,8 @@ pub use range::{ColumnRange, ColumnRangeError, Range, RangeError, RowRange, RowR
 /// A component of a [`Location`]
 ///
 /// This trait comprises a component of a [`Location`], which may be either a
-/// [`Row`] or a [`Column`]
+/// [`Row`] or a [`Column`]. It is effectively an index into a given row or
+/// column of a grid; for instance, a `Row` can index a column in a grid.
 pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash {
     /// The converse component ([`Row`] to [`Column`], or vice versa)
     type Converse: Component<Converse = Self>;
