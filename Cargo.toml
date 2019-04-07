@@ -1,18 +1,5 @@
-[package]
-name = "gridly"
-version = "0.1.0"
-authors = ["Nathan West <Lucretiel@gmail.com>"]
-edition = "2018"
-readme = "README.md"
-license = "MPL-2.0"
-description = "A library for managing fixed-size 2D spaces"
-repository = "https://github.com/Lucretiel/gridly-rs"
-categories = [
-	"no-std",
-	"data-structures",
-	"games"
-]
+[workspace]
 
-[badges]
-travis-ci = { repository = "Lucretiel/gridly-rs" }
-maintenance = { status = "actively-developed" }
+members = [
+	"gridly"
+]
