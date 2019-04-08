@@ -34,6 +34,10 @@ impl Location {
         }
     }
 
+    pub fn zero() -> Self {
+        Self::new(0, 0)
+    }
+
     /// Get either the row or column of a location
     pub fn get_component<T: Component>(&self) -> T {
         T::from_location(self)

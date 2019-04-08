@@ -12,6 +12,7 @@ pub struct Range<C: Component> {
 }
 
 impl<C: Component> Range<C> {
+    /// Create a range bounded by `[start .. end)`
     pub fn bounded(start: C, end: C) -> Self {
         Range {
             phanton: PhantomData,
@@ -19,11 +20,13 @@ impl<C: Component> Range<C> {
         }
     }
 
+    /// Create a range starting at `start` with length `size`
     #[inline]
     pub fn span(start: C, size: C::Distance) -> Self {
         Self::bounded(start, start.add(size))
     }
 
+    /// Create a range starting at Row or Column 0 with length `size`
     #[inline]
     pub fn range(size: C::Distance) -> Self {
         Self::span(0.into(), size)
