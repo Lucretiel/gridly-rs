@@ -8,7 +8,7 @@ pub use grid::{BaseGrid, BaseGridMut, Grid, GridBounds, GridBoundsExt, GridMut};
 pub use location::component::{ColumnRange, RowRange};
 pub use location::{
     Column, ColumnOrderedLocation, Component as LocationComponent, Location, OrderedLocation, Row,
-    RowOrderedLocation,
+    RowOrderedLocation, Range as LocationRange,
 };
 pub use vector::{Columns, Component as VectorComponent, Rows, Vector};
 
@@ -16,7 +16,7 @@ pub mod prelude {
     pub use crate::{
         BaseGrid, BaseGridMut, Column, ColumnOrderedLocation, ColumnRange, Columns, Direction,
         Down, Grid, GridBounds, GridBoundsExt, GridMut, Left, Location, LocationComponent, Right,
-        Row, RowOrderedLocation, RowRange, Rows, Up, Vector, VectorComponent,
+        Row, RowOrderedLocation, RowRange, Rows, Up, Vector, VectorComponent, LocationRange,
     };
 
 }
