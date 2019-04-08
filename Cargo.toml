@@ -1,5 +1,7 @@
 [workspace]
 
 members = [
-	"gridly"
+	"gridly",
+	"gridly-basic-grid",
+	"advent"
 ]

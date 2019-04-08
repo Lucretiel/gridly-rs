@@ -1,3 +1,5 @@
+pub mod adapters;
+
 use core::fmt::Debug;
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
@@ -17,6 +19,37 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 ///
 /// Note for implementors:
 pub trait GridBounds {
+    /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
+    /// const for any given grid.
+    fn dimensions(&self) -> Vector;
+
+    /// Return the root location (ie, the top left) of the grid. For most grids,
+    /// this is (0, 0), but some grids may include negatively indexed locations,
+    /// or even offsets. This value MUST be const for any given grid.
+    fn root(&self) -> Location {
+        Location::new(0, 0)
+    }
+}
+
+impl<'a, G: GridBounds + ?Sized> GridBounds for &'a G {
+    fn dimensions(&self) -> Vector {
+        (**self).dimensions()
+    }
+    fn root(&self) -> Location {
+        (**self).root()
+    }
+}
+
+impl<'a, G: GridBounds + ?Sized> GridBounds for &'a mut G {
+    fn dimensions(&self) -> Vector {
+        (**self).dimensions()
+    }
+    fn root(&self) -> Location {
+        (**self).root()
+    }
+}
+
+pub trait GridBoundsExt: GridBounds {
     /// Get the height of the grid in [`Rows`]. This value MUST be const for
     /// any given grid.
     fn num_rows(&self) -> Rows {
@@ -29,64 +62,30 @@ pub trait GridBounds {
         self.dimensions().columns
     }
 
-    /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
-    /// const for any given grid.
-    fn dimensions(&self) -> Vector;
+    /// Get the height or width of this grid.
+    #[inline]
+    fn dimension<C: VecComponent>(&self) -> C {
+        self.dimensions().get_component()
+    }
 
     /// Return the index of the topmost row of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid.
     fn root_row(&self) -> Row {
-        Row(0)
+        self.root().row
     }
 
     /// Return the index of the leftmost column of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid.
     fn root_column(&self) -> Column {
-        Column(0)
+        self.root().column
     }
 
-    /// Return the root location (ie, the top left) of the grid. For most grids,
-    /// this is (0, 0), but some grids may include negatively indexed locations,
-    /// or even offsets. This value MUST be const for any given grid.
-    fn root(&self) -> Location {
-        self.root_row() + self.root_column()
-    }
-}
-
-impl<'a, G: GridBounds> GridBounds for &'a G {
-    fn num_rows(&self) -> Rows {
-        (*self).num_rows()
-    }
-    fn num_columns(&self) -> Columns {
-        (*self).num_columns()
-    }
-    fn dimensions(&self) -> Vector {
-        (*self).dimensions()
-    }
-    fn root_row(&self) -> Row {
-        (*self).root_row()
-    }
-    fn root_column(&self) -> Column {
-        (*self).root_column()
-    }
-    fn root(&self) -> Location {
-        (*self).root()
-    }
-}
-
-pub trait GridBoundsExt: GridBounds {
     /// Return the index of the leftmost row or column of this grid.
     #[inline]
     fn root_component<C: LocComponent>(&self) -> C {
         self.root().get_component()
-    }
-
-    /// Get the height or width of this grid.
-    #[inline]
-    fn dimension<C: VecComponent>(&self) -> C {
-        self.dimensions().get_component()
     }
 
     /// Get a Range over the row or column indexes
@@ -164,7 +163,7 @@ impl From<ColumnRangeError> for LocationRangeError {
     }
 }
 
-pub trait Grid: GridBoundsExt {
+pub trait BaseGrid: GridBoundsExt {
     type Item;
 
     /// Get a reference to a cell, without doing bounds checking. Implementors
@@ -173,29 +172,25 @@ pub trait Grid: GridBoundsExt {
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
 }
 
-impl<'a, G: Grid> Grid for &'a G {
+impl<'a, G: BaseGrid> BaseGrid for &'a G {
     type Item = G::Item;
 
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item {
-        (*self).get_unchecked(loc)
+        (**self).get_unchecked(loc)
     }
 }
 
-pub trait MutGrid: Grid {
-    /// Get a mutable reference to a cell, without doing bounds checking. Implementors
-    /// of this method are allowed to assume that bounds checking has already been
-    /// performed on the location.
-    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
+impl<'a, G: BaseGrid> BaseGrid for &'a mut G {
+    type Item = G::Item;
 
-    /// Set the value of a cell in a location, without bounds checking the location.
-    unsafe fn set_unchecked(&mut self, loc: &Location, value: Self::Item) {
-        *self.get_unchecked_mut(loc) = value;
+    unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item {
+        (**self).get_unchecked(loc)
     }
 }
 
 /// View methods for a Grid, aimed at providing support for iterating over rows,
 /// columns, and cells inside of those views.
-pub trait GridExt: Grid {
+pub trait Grid: BaseGrid {
     /// Get a reference to a cell in a grid. Returns an error if the location
     /// is out of bounds with the specific boundary violation.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, LocationRangeError> {
@@ -253,7 +248,7 @@ pub trait GridExt: Grid {
     }
 }
 
-impl<G: Grid> GridExt for G {}
+impl<G: BaseGrid> Grid for G {}
 
 /// A view of the Rows or Columns in a grid.
 ///
@@ -405,3 +400,46 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> Index<T::Converse> for SingleView<'a
 
 pub type RowView<'a, G> = SingleView<'a, G, Row>;
 pub type ColumnView<'a, G> = SingleView<'a, G, Column>;
+
+pub trait BaseGridMut: BaseGrid {
+    /// Get a mutable reference to a cell, without doing bounds checking. Implementors
+    /// of this method are allowed to assume that bounds checking has already been
+    /// performed on the location.
+    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item;
+
+    /// Set the value of a cell in a location, without bounds checking the location.
+    unsafe fn set_unchecked(&mut self, loc: &Location, value: Self::Item) {
+        *self.get_unchecked_mut(loc) = value;
+    }
+}
+
+impl<'a, G: BaseGridMut> BaseGridMut for &'a mut G {
+    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut Self::Item {
+        (**self).get_unchecked_mut(loc)
+    }
+
+    unsafe fn set_unchecked(&mut self, loc: &Location, value: Self::Item) {
+        (**self).set_unchecked(loc, value)
+    }
+}
+
+pub trait GridMut: BaseGridMut {
+    fn get_mut(
+        &mut self,
+        location: impl Into<Location>,
+    ) -> Result<&mut Self::Item, LocationRangeError> {
+        self.check_location(location.into())
+            .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })
+    }
+
+    fn set(
+        &mut self,
+        location: impl Into<Location>,
+        value: Self::Item,
+    ) -> Result<(), LocationRangeError> {
+        self.check_location(location.into())
+            .map(move |loc| unsafe { self.set_unchecked(&loc, value) })
+    }
+}
+
+impl<G: BaseGridMut> GridMut for G {}

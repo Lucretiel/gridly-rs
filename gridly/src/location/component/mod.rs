@@ -45,7 +45,14 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash {
 
     /// Find the distance between two components, using the other component as the origin
     fn distance_from(self, origin: Self) -> Self::Distance;
+
+    /// Convert a Row into a Column or vice versa
+    fn transpose(self) -> Self::Converse {
+        self.value().into()
+    }
 }
+
+// TODO: TryFrom, once it's stable
 
 // TODO: add docstrings to these. Perhaps refer back to Component
 macro_rules! make_component {

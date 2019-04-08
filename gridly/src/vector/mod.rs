@@ -87,6 +87,11 @@ impl Vector {
     pub fn get_component<T: Component>(&self) -> T {
         T::from_vector(self)
     }
+
+    /// Swap the rows and columns of this Vector
+    pub fn transpose(&self) -> Vector {
+        Vector::new(self.columns.transpose(), self.rows.transpose())
+    }
 }
 
 /// Convert a `Rows` or `Columns` into an equivelent Vector

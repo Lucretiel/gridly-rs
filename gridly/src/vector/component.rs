@@ -36,7 +36,13 @@ pub trait Component:
     /// Return the lowercase name of this type of component, "rows" or "columns".
     fn name() -> &'static str;
 
+    /// Get the integer value of this component
     fn value(self) -> isize;
+
+    // Convert a Row into a Column or vice versa
+    fn transpose(self) -> Self::Converse {
+        self.value().into()
+    }
 }
 
 // TODO: add docstrings to these. Perhaps refer back to Component

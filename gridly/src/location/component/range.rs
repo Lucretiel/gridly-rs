@@ -25,6 +25,11 @@ impl<C: Component> Range<C> {
     }
 
     #[inline]
+    pub fn range(size: C::Distance) -> Self {
+        Self::span(0.into(), size)
+    }
+
+    #[inline]
     pub fn start(&self) -> C {
         self.range.start.into()
     }
