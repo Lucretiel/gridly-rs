@@ -43,13 +43,11 @@ impl<G: BaseGrid> BaseGrid for Transpose<G> {
 }
 
 impl<G: BaseGridSetter> BaseGridSetter for Transpose<G> {
-    type SetError = G::SetError;
-
-    unsafe fn try_set_unchecked(
+    unsafe fn set_unchecked(
         &mut self,
         location: &Location,
         value: Self::Item,
-    ) -> Result<(), Self::SetError> {
-        self.grid.try_set_unchecked(&location.transpose(), value)
+    ) {
+        self.grid.set_unchecked(&location.transpose(), value)
     }
 }

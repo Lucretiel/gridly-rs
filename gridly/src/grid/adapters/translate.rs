@@ -48,14 +48,12 @@ impl<G: BaseGrid> BaseGrid for Translate<G> {
 }
 
 impl<G: BaseGridSetter> BaseGridSetter for Translate<G> {
-    type SetError = G::SetError;
-
-    unsafe fn try_set_unchecked(
+    unsafe fn set_unchecked(
         &mut self,
         location: &Location,
         value: Self::Item,
-    ) -> Result<(), G::SetError> {
+    ) {
         self.grid
-            .try_set_unchecked(&self.internal_index(location), value)
+            .set_unchecked(&self.internal_index(location), value)
     }
 }
