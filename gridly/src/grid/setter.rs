@@ -47,7 +47,7 @@ pub trait GridSetter: BaseGridSetter {
     where
         Self: BaseGridSetter<SetError = Infallible>,
     {
-        self.try_set(location, value).unwrap()
+        self.try_set(location, value).map(Result::unwrap)
     }
 }
 
