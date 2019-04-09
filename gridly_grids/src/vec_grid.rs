@@ -104,9 +104,9 @@ impl<T> BaseGrid for VecGrid<T> {
     }
 }
 
-impl<T> BaseGridMut for VecGrid<T> {
-    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut T {
+impl<T> BaseGridSetter for VecGrid<T> {
+    unsafe fn set_unchecked(&mut self, loc: &Location, value: T) {
         let index = self.index_for_location(loc);
-        self.storage.get_unchecked_mut(index)
+        *self.storage.get_unchecked_mut(index) = value;
     }
 }

@@ -73,19 +73,12 @@ impl<T: Clone + PartialEq> BaseGrid for SparseGrid<T> {
     }
 }
 
-impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
-    unsafe fn get_unchecked_mut(&mut self, loc: &Location) -> &mut T {
-        let default = &self.default;
-        self.storage
-            .entry(*loc)
-            .or_insert_with(move || default.clone())
-    }
-
-    unsafe fn set_unchecked(&mut self, loc: &Location, value: T) {
+impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
+    unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
         if value == self.default {
-            self.storage.remove(loc);
+            self.storage.remove(location);
         } else {
-            self.storage.insert(*loc, value);
+            self.storage.insert(*location, value);
         }
     }
 }
