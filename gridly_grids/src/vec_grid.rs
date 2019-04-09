@@ -90,7 +90,7 @@ impl<T: Clone> VecGrid<T> {
     }
 }
 
-impl<T> GridBounds for VecGrid<T> {
+impl<T> BaseGridBounds for VecGrid<T> {
     fn dimensions(&self) -> Vector {
         self.dimensions
     }

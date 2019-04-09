@@ -55,7 +55,7 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
     }
 }
 
-impl<T: Clone + PartialEq> GridBounds for SparseGrid<T> {
+impl<T: Clone + PartialEq> BaseGridBounds for SparseGrid<T> {
     fn dimensions(&self) -> Vector {
         self.dimensions
     }

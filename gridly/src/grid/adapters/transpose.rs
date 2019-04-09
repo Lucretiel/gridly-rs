@@ -1,4 +1,4 @@
-use crate::grid::{BaseGrid, GridBounds};
+use crate::grid::{BaseGrid, BaseGridBounds, BaseGridSetter};
 use crate::location::Location;
 use crate::vector::Vector;
 
@@ -6,14 +6,14 @@ pub trait IntoTranspose: Sized {
     fn transpose(self) -> Transpose<Self>;
 }
 
-impl<G: GridBounds + Sized> IntoTranspose for G {
+impl<G: BaseGridBounds + Sized> IntoTranspose for G {
     fn transpose(self) -> Transpose<Self> {
         Transpose { grid: self }
     }
 }
 
 /// Transpose a grid, swapping its rows and columns
-#[derive(Debug, Clone, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Default, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Transpose<G> {
     grid: G,
 }
@@ -24,7 +24,7 @@ impl<G> Transpose<G> {
     }
 }
 
-impl<G: GridBounds> GridBounds for Transpose<G> {
+impl<G: BaseGridBounds> BaseGridBounds for Transpose<G> {
     fn dimensions(&self) -> Vector {
         self.grid.dimensions().transpose()
     }
@@ -39,5 +39,17 @@ impl<G: BaseGrid> BaseGrid for Transpose<G> {
 
     unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item {
         self.grid.get_unchecked(&loc.transpose())
+    }
+}
+
+impl<G: BaseGridSetter> BaseGridSetter for Transpose<G> {
+    type SetError = G::SetError;
+
+    unsafe fn try_set_unchecked(
+        &mut self,
+        location: &Location,
+        value: Self::Item,
+    ) -> Result<(), Self::SetError> {
+        self.grid.try_set_unchecked(&location.transpose(), value)
     }
 }
