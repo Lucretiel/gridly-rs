@@ -7,6 +7,8 @@ pub trait IntoBordered: Sized + BaseGrid {
 }
 
 impl<G: BaseGrid + Sized> IntoBordered for G {
+    /// Surround a grid in a border. The border is a single cell thick and
+    /// has a value of `border_value`. The border cannot be edited
     fn with_border(self, border_value: Self::Item) -> Bordered<Self> {
         Bordered {
             border_value,
@@ -15,6 +17,9 @@ impl<G: BaseGrid + Sized> IntoBordered for G {
     }
 }
 
+/// Wrap a grid in a border
+///
+/// A Bi
 #[derive(Debug, Clone, Default, Hash, Eq, PartialEq)]
 pub struct Bordered<G: BaseGrid> {
     border_value: G::Item,
