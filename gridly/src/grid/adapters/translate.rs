@@ -48,11 +48,7 @@ impl<G: BaseGrid> BaseGrid for Translate<G> {
 }
 
 impl<G: BaseGridSetter> BaseGridSetter for Translate<G> {
-    unsafe fn set_unchecked(
-        &mut self,
-        location: &Location,
-        value: Self::Item,
-    ) {
+    unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item) {
         self.grid
             .set_unchecked(&self.internal_index(location), value)
     }

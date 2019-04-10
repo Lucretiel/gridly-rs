@@ -99,14 +99,22 @@ impl<T> BaseGridBounds for VecGrid<T> {
 impl<T> BaseGrid for VecGrid<T> {
     type Item = T;
 
-    unsafe fn get_unchecked(&self, loc: &Location) -> &T {
-        self.storage.get_unchecked(self.index_for_location(loc))
+    unsafe fn get_unchecked(&self, location: &Location) -> &T {
+        self.storage
+            .get_unchecked(self.index_for_location(location))
     }
 }
 
 impl<T> BaseGridSetter for VecGrid<T> {
-    unsafe fn set_unchecked(&mut self, loc: &Location, value: T) {
-        let index = self.index_for_location(loc);
+    unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
+        let index = self.index_for_location(location);
         *self.storage.get_unchecked_mut(index) = value;
+    }
+}
+
+impl<T> BaseGridMut for VecGrid<T> {
+    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
+        let index = self.index_for_location(location);
+        self.storage.get_unchecked_mut(index)
     }
 }
