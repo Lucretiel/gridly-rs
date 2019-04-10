@@ -13,7 +13,7 @@ impl<G: BaseGridBounds + Sized> IntoTranspose for G {
 }
 
 /// Transpose a grid, swapping its rows and columns
-#[derive(Debug, Clone, Default, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Default, Hash, Eq, PartialEq)]
 pub struct Transpose<G> {
     grid: G,
 }
@@ -37,8 +37,8 @@ impl<G: BaseGridBounds> BaseGridBounds for Transpose<G> {
 impl<G: BaseGrid> BaseGrid for Transpose<G> {
     type Item = G::Item;
 
-    unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item {
-        self.grid.get_unchecked(&loc.transpose())
+    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item {
+        self.grid.get_unchecked(&location.transpose())
     }
 }
 
