@@ -1,4 +1,4 @@
-use crate::grid::{BaseGrid, BaseGridBounds, BaseGridSetter};
+use crate::grid::{BaseGrid, BaseGridBounds, BaseGridMut, BaseGridSetter};
 use crate::location::Location;
 use crate::vector::Vector;
 
@@ -45,5 +45,11 @@ impl<G: BaseGrid> BaseGrid for Transpose<G> {
 impl<G: BaseGridSetter> BaseGridSetter for Transpose<G> {
     unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item) {
         self.grid.set_unchecked(&location.transpose(), value)
+    }
+}
+
+impl<G: BaseGridMut> BaseGridMut for Transpose<G> {
+    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut Self::Item {
+        self.grid.get_unchecked_mut(&location.transpose())
     }
 }
