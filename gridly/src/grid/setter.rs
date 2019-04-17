@@ -4,11 +4,11 @@ use crate::location::Location;
 
 pub trait BaseGridSetter: Grid {
     // TODO: try_set_unchecked
-    unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item);
+    unsafe fn set_unchecked(&mut self, location: Location, value: Self::Item);
 }
 
 impl<G: BaseGridSetter> BaseGridSetter for &mut G {
-    unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item) {
+    unsafe fn set_unchecked(&mut self, location: Location, value: Self::Item) {
         (**self).set_unchecked(location, value)
     }
 }
@@ -16,8 +16,8 @@ impl<G: BaseGridSetter> BaseGridSetter for &mut G {
 pub trait GridSetter: BaseGridSetter {
     fn set(&mut self, location: impl Into<Location>, value: Self::Item) -> Result<(), BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.set_unchecked(&loc, value) })
+            .map(move |loc| unsafe { self.set_unchecked(loc, value) })
     }
 }
 
-impl<G: BaseGridSetter> GridSetter for G {}
+impl<G: BaseGridSetter> GridSetter for G where Self::Item: Sized {}

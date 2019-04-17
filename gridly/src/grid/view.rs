@@ -9,52 +9,70 @@ use crate::location::component::{
 };
 use crate::location::{Column, Component as LocComponent, Location, Range as LocationRange, Row};
 
+/// Base Reader trait for grids.
+///
+/// This trait provides the grid's cell type, `Item`, and a single, unsafe
+/// reader function, `get_unchecked`, which provides a reference to a cell at a
+/// location.
+///
+/// The [`Grid`] trait, which is automatically implemented for all [`BaseGrid`],
+/// provides a safe and comprehensive interface to a `BaseGrid`, which includes
+/// bounds checking based on [`GridBounds`] and many different view and iterator
+/// methods.
 pub trait BaseGrid: GridBounds {
     type Item;
 
     /// Get a reference to a cell, without doing bounds checking. Implementors
     /// of this method are allowed to assume that bounds checking has already
-    /// been performed on the location.
-    unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item;
+    /// been performed on the location, which means that implementors are allowed
+    /// to do their own unsafe `get` operations on the underlying storage,
+    /// where relevant.
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item;
 }
 
 impl<G: BaseGrid> BaseGrid for &G {
     type Item = G::Item;
 
-    unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item {
-        (**self).get_unchecked(loc)
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
+        (**self).get_unchecked(location)
     }
 }
 
 impl<G: BaseGrid> BaseGrid for &mut G {
     type Item = G::Item;
 
-    unsafe fn get_unchecked(&self, loc: &Location) -> &Self::Item {
-        (**self).get_unchecked(loc)
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
+        (**self).get_unchecked(location)
     }
 }
 
-/// View methods for a Grid, aimed at providing support for iterating over rows,
-/// columns, and cells inside of those views.
+/// Trait for viewing the values in a grid
+///
+/// `Grid` provides a comprehensive interface for reading values in a grid. This
+/// interface includes bounds-checked getters, iterators, and views.
 pub trait Grid: BaseGrid {
     /// Get a reference to a cell in a grid. Returns an error if the location
     /// is out of bounds with the specific boundary violation.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.get_unchecked(&loc) })
+            .map(move |loc| unsafe { self.get_unchecked(loc) })
     }
 
-    // Get a view of a grid, over its rows or columns
+    // Get a view of a grid, over its rows or columns. A view of a grid is
+    // similar to a slice, but instead of being a view over specific elements,
+    // it's a view over the rows and columns.
+    //
+    // For instance
     fn view<T: LocComponent>(&self) -> View<Self, T> {
         View::new(self)
     }
 
-    /// Get a view of a grid's rows
+    /// Get a view of a grid's rows. See `[View]` for details.
     fn rows(&self) -> RowsView<Self> {
         self.view()
     }
 
-    /// Get a view of a grid's columns
+    /// Get a view of a grid's columns. See `[View]` for details.
     fn columns(&self) -> ColumnsView<Self> {
         self.view()
     }
@@ -66,13 +84,13 @@ pub trait Grid: BaseGrid {
     }
 
     /// Get a view of a single row in a grid, without bounds checking that row's index
-    unsafe fn row_unchecked(&self, row: impl Into<Row>) -> RowView<Self> {
-        self.single_view_unchecked(row.into())
+    unsafe fn row_unchecked(&self, row: Row) -> RowView<Self> {
+        self.single_view_unchecked(row)
     }
 
     /// Get a view of a single column in a grid, without bounds checking that column's index
-    unsafe fn column_unchecked(&self, column: impl Into<Column>) -> ColumnView<Self> {
-        self.single_view_unchecked(column.into())
+    unsafe fn column_unchecked(&self, column: Column) -> ColumnView<Self> {
+        self.single_view_unchecked(column)
     }
 
     /// Get a view of a single row or column in a grid. Returns an error if the index of the
@@ -101,13 +119,16 @@ impl<G: BaseGrid> Grid for G {}
 /// This struct provides a row- or column-major view of a grid. For instance,
 /// a `View<MyGrid, Row>` is a View of all of the rows in MyGrid.
 ///
-///
+/// A view can be indexed over its major ordering. For example, a `View<G, Row>`
+/// can be indexed over rows,
 pub struct View<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
     index: PhantomData<T>,
 }
 
 impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
+    /// Create a grid view. Grid views are pretty boring because they don't need
+    /// to include anything besides the grid itself.
     fn new(grid: &'a G) -> Self {
         Self {
             grid,
@@ -115,18 +136,26 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
         }
     }
 
-    pub unsafe fn get_unchecked(&self, index: T) -> SingleView<G, T> {
+    /// Get a view of a single row or column of the grid, without bounds checking
+    /// the index.
+    pub unsafe fn get_unchecked(&self, index: T) -> SingleView<'a, G, T> {
         SingleView::new_unchecked(self.grid, index)
     }
 
-    pub fn get(&self, index: impl Into<T>) -> Result<SingleView<G, T>, RangeError<T>> {
+    /// Get a view of a single row or column of the grid. Returns a range error
+    /// if the index is out of range.
+    pub fn get(&self, index: impl Into<T>) -> Result<SingleView<'a, G, T>, RangeError<T>> {
         SingleView::new(self.grid, index.into())
     }
 
+    /// Get a range over all the row or column indexes of this view.
     pub fn range(&self) -> IndexRange<T> {
         self.grid.range()
     }
 
+    /// Create an iterator over the rows or columns of the grid. Each iterated
+    /// element is a [`SingleView`], which is a view over a single row or column
+    /// of the grid.
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = SingleView<'a, G, T>>
@@ -143,16 +172,29 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
 
 // TODO: impl Index for GridView. Requires Higher Kinded Lifetimes, because
 // Index currently requires an &'a T, but we want to return a GridSingleView<'a, T>
-// TODO: IntoIterator
+// TODO: IntoIterator. We'd rather not maintain our own iterator type, so for
+// now we require uses to use the iter() method.
 
+/// A view over the rows of a grid.
 pub type RowsView<'a, G> = View<'a, G, Row>;
+
+/// A view over the columns of a grid.
 pub type ColumnsView<'a, G> = View<'a, G, Column>;
 
-// Implementor notes: a GridSingleView's index field is guaranteed to have been
-// bounds checked against the grid. Therefore, we provide unsafe constructors, and
-// then freely use unsafe accessors in the safe interface.
+/// View of a single Row or Column of a grid.
+///
+/// A `SingleView` provides a view over a single row or column of a grid, based
+/// on its generic parameter. For instance, a SingleView<'a, G, Row> is a view
+/// over a single row of a grid.
+///
+/// A `SingleView` can be indexed; for instance, a [`RowView`] can be indexed
+/// with a `Column` to a get a specific cell.
 pub struct SingleView<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
+
+    // Implementor notes: a GridSingleView's index field is guaranteed to have been
+    // bounds checked against the grid. Therefore, we provide unsafe constructors, and
+    // then freely use unsafe accessors in the safe interface.
     index: T,
 }
 
@@ -166,14 +208,21 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
             .map(move |index| unsafe { Self::new_unchecked(grid, index) })
     }
 
+    /// Get the index of the Row or Column that this view represents. This index
+    /// is safely guaranteed to have been bounds checked when the `SingleView`
+    /// was constructed.
     pub fn index(&self) -> T {
         self.index
     }
 
+    /// Get a particular cell in the row or column by an index, without bounds
+    /// checking the index.
     pub unsafe fn get_unchecked(&self, cross: T::Converse) -> &'a G::Item {
-        self.grid.get_unchecked(&self.index.combine(cross))
+        self.grid.get_unchecked(self.index.combine(cross))
     }
 
+    /// Get a particular cell in the row or column, or return an error if the
+    /// index is out of bounds.
     pub fn get(
         &self,
         cross: impl Into<T::Converse>,
@@ -183,11 +232,12 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
             .map(move |cross| unsafe { self.get_unchecked(cross) })
     }
 
-    /// Get the locations associated with this view
+    /// Get the specific locations associated with this view.
     pub fn range(&self) -> LocationRange<T> {
         LocationRange::new(self.index, self.grid.range())
     }
 
+    /// Get an iterator over the cells in this row or column
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = &'a G::Item>
@@ -198,9 +248,10 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
                  + Clone {
         let grid = self.grid;
         self.range()
-            .map(move |loc| unsafe { grid.get_unchecked(&loc) })
+            .map(move |loc| unsafe { grid.get_unchecked(loc) })
     }
 
+    /// Get an iterator over `(Location, &Item)` pairs for this row or column.
     pub fn with_locations(
         &self,
     ) -> impl Iterator<Item = (Location, &'a G::Item)>
@@ -211,10 +262,12 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
                  + Clone {
         let grid = self.grid;
         self.range()
-            .map(move |loc| (loc, unsafe { grid.get_unchecked(&loc) }))
+            .map(move |loc| (loc, unsafe { grid.get_unchecked(loc) }))
     }
 
-    pub fn with_component(
+    /// Get an iterator over `(Index, &Item)` pairs for this column. For instance,
+    /// for a `RowView`, this iterates over `(Column, &Item)` pairs.
+    pub fn with_index(
         &self,
     ) -> impl Iterator<Item = (T::Converse, &'a G::Item)>
                  + DoubleEndedIterator
@@ -226,7 +279,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
         let index = self.index;
         self.grid.range().map(move |cross: T::Converse| {
             (cross, unsafe {
-                grid.get_unchecked(&(cross.combine(index)))
+                grid.get_unchecked(cross.combine(index))
             })
         })
     }

@@ -1,7 +1,7 @@
 pub mod component;
 mod range;
 
-use core::cmp::Ordering;
+use core::cmp::{Ordering, PartialOrd};
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign};
 
@@ -11,13 +11,11 @@ use crate::vector::{Columns, Rows, Vector};
 pub use component::{Column, Component, Row};
 pub use range::Range;
 
-//TODO: separate type for dimensions; essentially an unsigned Vector
-
 /// A location on a grid
 ///
 /// A location is the primary indexing type for a Grid, and represents a single
-/// cell on that grid. It is comprised of a Row and a Column. By convention,
-/// increasing rows count downward and increasing columns count rightward.
+/// cell on that grid. It is comprised of a Row and a Column. Increasing rows
+/// count downward and increasing columns count rightward.
 ///
 /// Locations support arithmetic operations with Vectors.
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
@@ -27,6 +25,7 @@ pub struct Location {
 }
 
 impl Location {
+    /// Create a new location out of a `row` and a `column`
     pub fn new(row: impl Into<Row>, column: impl Into<Column>) -> Self {
         Location {
             row: row.into(),
@@ -34,8 +33,12 @@ impl Location {
         }
     }
 
-    pub fn zero() -> Self {
-        Self::new(0, 0)
+    /// Create a new location at `(0, 0)`.
+    pub const fn zero() -> Self {
+        Location {
+            row: Row(0),
+            column: Column(0),
+        }
     }
 
     /// Get either the row or column of a location
@@ -43,22 +46,22 @@ impl Location {
         T::from_location(self)
     }
 
-    /// Return the location that is `distance` above this one
+    /// Return the location that is `distance` rows above this one
     pub fn above(&self, distance: impl Into<Rows>) -> Location {
         *self - distance.into()
     }
 
-    /// Return the location that is `distance` below this one
+    /// Return the location that is `distance` rows below this one
     pub fn below(&self, distance: impl Into<Rows>) -> Location {
         *self + distance.into()
     }
 
-    /// Return the location that is `distance` to the left of this one
+    /// Return the location that is `distance` columns to the left of this one
     pub fn left(&self, distance: impl Into<Columns>) -> Location {
         *self - distance.into()
     }
 
-    /// Return the location that is `distance` to the right of this one
+    /// Return the location that is `distance` columns to the right of this one
     pub fn right(&self, distance: impl Into<Columns>) -> Location {
         *self + distance.into()
     }
@@ -83,11 +86,11 @@ impl Location {
     }
 
     pub fn row_ordered(self) -> RowOrderedLocation {
-        self.into()
+        self.order_by()
     }
 
     pub fn column_ordered(self) -> ColumnOrderedLocation {
-        self.into()
+        self.order_by()
     }
 }
 
@@ -139,6 +142,76 @@ impl Sub<Location> for Location {
     }
 }
 
+/// Locations have a partial ordering. `loc1` is considered greater than `loc2` iff
+/// its row or its column are greater than those in `loc2`. This chart shows an
+/// example:
+///
+/// ```text
+/// <<<??
+/// <<<??
+/// <<=>>
+/// ??>>>
+/// ??>>>
+/// ```
+///
+/// Cells marked `>` are considered greater than the center location (marked `=`),
+/// and cells marked '<' are less than the center location. Cells marked `?` do
+/// not have an ordering with the center location.
+///
+/// For a strict ordering between all possible locations, see the [`OrderedLocation`]
+/// wrapper struct, which allows for row-major or column-major orderings.
+impl PartialOrd for Location {
+    fn partial_cmp(&self, rhs: &Location) -> Option<Ordering> {
+        match (self.row.cmp(&rhs.row), self.column.cmp(&rhs.column)) {
+            (Ordering::Greater, Ordering::Less) | (Ordering::Less, Ordering::Greater) => None,
+            (o1, o2) => Some(o1.then(o2)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod partial_ord_tests {
+    use crate::prelude::{Location, Vector, Rows, Columns};
+    use core::cmp::Ordering;
+
+    const ZERO: Location = Location::zero();
+    const DIAG: Vector = Vector{rows: Rows(1), columns: Columns(1)};
+    const BAD_DIAG: Vector = Vector{rows: Rows(-1), columns: Columns(1)};
+
+    #[test]
+    fn test_eq() {
+        assert_eq!(ZERO, Location::new(0, 0))
+    }
+
+    #[test]
+    fn test_orderliness()
+    {
+        assert_eq!(ZERO.partial_cmp(&ZERO.above(1)), Some(Ordering::Greater));
+        assert_eq!(ZERO.partial_cmp(&ZERO.left(1)), Some(Ordering::Greater));
+        assert_eq!(ZERO.partial_cmp(&(ZERO - DIAG)), Some(Ordering::Greater));
+
+        assert_eq!(ZERO.partial_cmp(&ZERO.below(1)), Some(Ordering::Less));
+        assert_eq!(ZERO.partial_cmp(&ZERO.right(1)), Some(Ordering::Less));
+        assert_eq!(ZERO.partial_cmp(&(ZERO + DIAG)), Some(Ordering::Less));
+
+        assert_eq!(ZERO.partial_cmp(&(ZERO + BAD_DIAG)), None);
+        assert_eq!(ZERO.partial_cmp(&(ZERO - BAD_DIAG)), None);
+
+        assert_eq!(ZERO.partial_cmp(&ZERO), Some(Ordering::Equal));
+
+    }
+
+    #[test]
+    fn test_bad_diagonal() {
+        for location in &[Location::new(1, -1), Location::new(-1, 1)] {
+            assert!(! (ZERO < *location));
+            assert!(! (ZERO > *location));
+            assert!(! (ZERO <= *location));
+            assert!(! (ZERO >= *location));
+        }
+    }
+}
+
 /// Rules for ordering a Location
 ///
 /// `OrderedLocation` is a wrapper struct around a `Location` that supplies an Ord and
@@ -151,7 +224,7 @@ pub struct OrderedLocation<Major: Component> {
     phantom: PhantomData<Major>,
 }
 
-impl<M: Component> OrderedLocation<M> {
+impl<Major: Component> OrderedLocation<Major> {
     pub fn new(location: Location) -> Self {
         Self {
             location,
@@ -159,7 +232,11 @@ impl<M: Component> OrderedLocation<M> {
         }
     }
 
-    fn as_tuple(&self) -> (M, M::Converse) {
+    /// To simplify the ordering implementation, convert this `Location` into
+    /// a tuple, where the `Major` component is the first value its converse
+    /// is the second value. This allows the `Ord
+    #[inline]
+    fn as_tuple(&self) -> (Major, Major::Converse) {
         (self.get_component(), self.get_component())
     }
 }

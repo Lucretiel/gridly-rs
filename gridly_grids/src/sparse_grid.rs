@@ -27,13 +27,13 @@ pub struct SparseGrid<T: Clone + PartialEq> {
 impl<T: Clone + PartialEq> SparseGrid<T> {
     /// Create a new `SparseGrid` with the given dimensions, rooted at `(0, 0)`,
     /// filled with the given default value
-    pub fn new(dimensions: Vector, default: T) -> Self {
-        Self::new_rooted(Location::zero(), dimensions, default)
+    pub fn new_default(dimensions: Vector, default: T) -> Self {
+        Self::new_rooted_default(Location::zero(), dimensions, default)
     }
 
     /// Create a new `SparseGrid` with the given dimensions and root location,
     /// filled with the default value
-    pub fn new_rooted(root: Location, dimensions: Vector, default: T) -> Self {
+    pub fn new_rooted_default(root: Location, dimensions: Vector, default: T) -> Self {
         Self {
             root,
             dimensions,
@@ -52,6 +52,11 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
     pub fn clean(&mut self) {
         let default = &self.default;
         self.storage.retain(move |_, value| value != default)
+    }
+
+    /// Remove all non-default entries from the grid
+    pub fn clear(&mut self) {
+        self.storage.clear()
     }
 
     /// Get an iterator over all of the occupied (non-default) entries in the
@@ -80,14 +85,14 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
 impl<T: Clone + PartialEq + Default> SparseGrid<T> {
     /// Create a new `SparseGrid` with the given dimensions and root location,
     /// filled with the default value for `T`
-    pub fn new_default_rooted(root: Location, dimensions: Vector) -> Self {
-        Self::new_rooted(root, dimensions, T::default())
+    pub fn new_rooted(root: Location, dimensions: Vector) -> Self {
+        Self::new_rooted_default(root, dimensions, T::default())
     }
 
     /// Create a new `SparseGrid` with the given dimensions, rooted at `(0, 0)`,
     /// filled with the default value for `T`
-    pub fn new_default(dimensions: Vector) -> Self {
-        Self::new(dimensions, T::default())
+    pub fn new(dimensions: Vector) -> Self {
+        Self::new_default(dimensions, T::default())
     }
 }
 
@@ -106,19 +111,19 @@ impl<T: Clone + PartialEq> BaseGrid for SparseGrid<T> {
 
     /// Get a reference to a value in the grid. If the location is not present
     /// in the hash table, return a reference to the grid's default value.
-    unsafe fn get_unchecked(&self, loc: &Location) -> &T {
-        self.storage.get(loc).unwrap_or(&self.default)
+    unsafe fn get_unchecked(&self, loc: Location) -> &T {
+        self.storage.get(&loc).unwrap_or(&self.default)
     }
 }
 
 impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
     /// Set the value of a cell in the grid. If this value compares equal to
     /// the default, remove it from the underlying hash table.
-    unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
+    unsafe fn set_unchecked(&mut self, location: Location, value: T) {
         if value == self.default {
-            self.storage.remove(location);
+            self.storage.remove(&location);
         } else {
-            self.storage.insert(*location, value);
+            self.storage.insert(location, value);
         }
     }
 }
@@ -127,10 +132,10 @@ impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
     /// Get a mutable reference to a cell in the grid. If this cell is unoccupied,
     /// the default is cloned and inserted into the underlying hash table at this
     /// location.
-    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
+    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut T {
         let default = &self.default;
         self.storage
-            .entry(*location)
+            .entry(location)
             .or_insert_with(move || default.clone())
     }
 }

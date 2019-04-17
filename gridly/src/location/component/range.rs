@@ -5,6 +5,14 @@ use core::ops::Range as IRange;
 use crate::location::{self, Column, Component, Row};
 
 // TODO: replace this with Range<C> once Step is stabilized
+/// Range over `Row` or `Column` indices.
+///
+/// This struct represents a range over `Row` or `Column` values. Much like
+/// the standard Rust range, it is half open, bounded by `[start..end)`. It
+/// supports simple accessors and iteration.
+///
+/// This struct will go away when
+/// `std::ops::Range<T>` is stabilized for custom `T` types.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Range<C: Component> {
     range: IRange<isize>,
@@ -13,6 +21,23 @@ pub struct Range<C: Component> {
 
 impl<C: Component> Range<C> {
     /// Create a range bounded by `[start .. end)`
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly::location::component::{Range, Row};
+    /// use gridly::vector::Rows;
+    /// let mut range = Range::bounded(Row(0), Row(3));
+    ///
+    /// assert_eq!(range.size(), Rows(3));
+    /// assert_eq!(range.start(), Row(0));
+    /// assert_eq!(range.end(), Row(3));
+    ///
+    /// assert_eq!(range.next(), Some(Row(0)));
+    /// assert_eq!(range.next(), Some(Row(1)));
+    /// assert_eq!(range.next(), Some(Row(2)));
+    /// assert_eq!(range.next(), None);
+    /// ```
     pub fn bounded(start: C, end: C) -> Self {
         Range {
             phanton: PhantomData,
@@ -21,32 +46,74 @@ impl<C: Component> Range<C> {
     }
 
     /// Create a range starting at `start` with length `size`
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly::location::component::{Range, Column};
+    /// use gridly::vector::Columns;
+    /// let mut range = Range::span(Column(1), Columns(2));
+    ///
+    /// assert_eq!(range.size(), Columns(2));
+    /// assert_eq!(range.start(), Column(1));
+    /// assert_eq!(range.end(), Column(3));
+    ///
+    /// assert_eq!(range.next(), Some(Column(1)));
+    /// assert_eq!(range.next(), Some(Column(2)));
+    /// assert_eq!(range.next(), None);
+    /// ```
     #[inline]
     pub fn span(start: C, size: C::Distance) -> Self {
         Self::bounded(start, start.add(size))
     }
 
-    /// Create a range starting at Row or Column 0 with length `size`
-    #[inline]
-    pub fn range(size: C::Distance) -> Self {
-        Self::span(0.into(), size)
-    }
-
+    /// Get the start index of the range
     #[inline]
     pub fn start(&self) -> C {
         self.range.start.into()
     }
 
+    /// Get the end index of the range
     #[inline]
     pub fn end(&self) -> C {
         self.range.end.into()
     }
 
     #[inline]
+    /// Get the size of the range
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly::location::component::{Range, Row};
+    /// use gridly::vector::Rows;
+    ///
+    /// let range = Range::bounded(Row(-1), Row(3));
+    /// assert_eq!(range.size(), Rows(4));
+    /// ```
     pub fn size(&self) -> C::Distance {
         self.start().distance_to(self.end())
     }
 
+    /// Check that a `Row` or `Column` is in bounds for this range. If it is,
+    /// return the index as a `Row` or `Column`; otherwise, return a `RangeError`
+    /// indivating if the index was too high or too low, and what the exceeded
+    /// upper or lower bound is.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly::location::component::{Range, Row, RangeError};
+    /// use gridly::vector::Rows;
+    ///
+    /// let range = Range::span(Row(3), Rows(5));
+    /// assert_eq!(range.check(Row(4)), Ok(Row(4)));
+    /// assert_eq!(range.check(Row(0)), Err(RangeError::TooLow(Row(3))));
+    /// assert_eq!(range.check(Row(8)), Err(RangeError::TooHigh(Row(8))));
+    ///
+    /// // This can also be used to quickly map an `isize` to a `Row` or `Column`
+    /// assert_eq!(range.check(5), Ok(Row(5)));
+    /// ```
     pub fn check(&self, idx: impl Into<C>) -> Result<C, RangeError<C>> {
         let idx = idx.into();
 
@@ -63,10 +130,26 @@ impl<C: Component> Range<C> {
     }
 
     #[inline]
+    /// Check that a `Row` or `Column` is in bounds for this range.
     pub fn in_bounds(&self, loc: C) -> bool {
         self.check(loc).is_ok()
     }
 
+    /// Combine an index range with a converse index to create a [location range],
+    /// which is a range over locations, rather than Row or Column indexes.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly::location::component::{Range, Row, Column};
+    ///
+    /// let mut range = Range::bounded(Row(3), Row(6)).combine(Column(4));
+    ///
+    /// assert_eq!(range.next(), Some((3, 4).into()));
+    /// assert_eq!(range.next(), Some((4, 4).into()));
+    /// assert_eq!(range.next(), Some((5, 4).into()));
+    /// assert_eq!(range.next(), None);
+    /// ```
     pub fn combine(self, index: C::Converse) -> location::Range<C::Converse> {
         location::Range::new(index, self)
     }
@@ -117,7 +200,18 @@ pub type ColumnRange = Range<Column>;
 /// Note that the bounds expressed in this error are half inclusive; that is,
 /// the lower bound in TooLow is an inclusive lower bound, but the upper bound
 /// in TooHigh is an exclusive upper bound. This is consistent with the
-/// conventional range representation of `low..high`
+/// conventional range representation of `low..high`.
+///
+/// # Example:
+///
+/// ```
+/// use gridly::location::component::{Range, Row, RangeError};
+/// let range = Range::bounded(Row(0), Row(10));
+///
+/// assert_eq!(range.check(-5), Err(RangeError::TooLow(Row(0))));
+/// assert_eq!(range.check(15), Err(RangeError::TooHigh(Row(10))));
+/// assert_eq!(range.check(10), Err(RangeError::TooHigh(Row(10))));
+/// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RangeError<T: Component> {
     /// The given row or column was too low. The value in the error is the

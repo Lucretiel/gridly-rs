@@ -17,6 +17,7 @@ pub trait Component:
     + Debug
     + Add
     + Sub
+    + Neg
     + Default
     + PartialEq<isize>
     + PartialOrd<isize>
@@ -40,9 +41,7 @@ pub trait Component:
     fn value(self) -> isize;
 
     // Convert a Row into a Column or vice versa
-    fn transpose(self) -> Self::Converse {
-        self.value().into()
-    }
+    fn transpose(self) -> Self::Converse;
 }
 
 // TODO: add docstrings to these. Perhaps refer back to Component
@@ -180,6 +179,10 @@ macro_rules! make_component {
 
             fn value(self) -> isize {
                 self.0
+            }
+
+            fn transpose(self) -> Self::Converse {
+                $Converse(self.0)
             }
         }
     }

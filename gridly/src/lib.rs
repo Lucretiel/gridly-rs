@@ -5,7 +5,6 @@ pub mod vector;
 
 pub mod prelude {
     pub use crate::direction::{Direction, Down, Left, Right, Up};
-    pub use crate::grid::adapters::{IntoTranslate, IntoTranspose};
     pub use crate::grid::{
         BaseGrid, BaseGridBounds, BaseGridMut, BaseGridSetter, Grid, GridBounds, GridMut,
         GridSetter,

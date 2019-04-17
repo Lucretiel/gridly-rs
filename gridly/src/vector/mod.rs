@@ -10,10 +10,12 @@ pub use component::{Columns, Component, Rows};
 
 /// A measurement of distance between two [`Location`]s
 ///
-/// A vector is the measurement of distance between two [`Location`]s. It
+/// A `Vector` is the measurement of distance between two [`Location`]s. It
 /// supports arithmetic operations with itself, as well as anything which can
 /// be converted into a Vector. Currently, [`Rows`], [`Columns`], and [`Direction`]
 /// all have this property, as well as a tuple of (Into<Rows>, Into<Columns>).
+///
+/// [Location]: crate::location::Location
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
 pub struct Vector {
     pub rows: Rows,
@@ -21,6 +23,13 @@ pub struct Vector {
 }
 
 impl Vector {
+    const fn new_const(rows: isize, columns: isize) -> Self {
+        Vector {
+            rows: Rows(rows),
+            columns: Columns(columns),
+        }
+    }
+
     /// Create a new `Vector`
     pub fn new(rows: impl Into<Rows>, columns: impl Into<Columns>) -> Self {
         Vector {
@@ -30,28 +39,28 @@ impl Vector {
     }
 
     /// Create a zero `Vector`
-    pub fn zero() -> Vector {
-        Vector::new(0, 0)
+    pub const fn zero() -> Vector {
+        Vector::new_const(0, 0)
     }
 
     /// Create an upward pointing vector of the given size
-    pub fn upward(size: isize) -> Vector {
-        Vector::new(-size, 0)
+    pub const fn upward(size: isize) -> Vector {
+        Vector::new_const(-size, 0)
     }
 
     /// Create a downward pointing vector of the given size
-    pub fn downward(size: isize) -> Vector {
-        Vector::new(size, 0)
+    pub const fn downward(size: isize) -> Vector {
+        Vector::new_const(size, 0)
     }
 
     /// Create a leftward pointing vector of the given size
-    pub fn leftward(size: isize) -> Vector {
-        Vector::new(0, -size)
+    pub const fn leftward(size: isize) -> Vector {
+        Vector::new_const(0, -size)
     }
 
     /// Create a rightward pointing vector of the given size
-    pub fn rightward(size: isize) -> Vector {
-        Vector::new(0, size)
+    pub const fn rightward(size: isize) -> Vector {
+        Vector::new_const(0, size)
     }
 
     /// Create a vector of the given size in the given direction
@@ -68,14 +77,14 @@ impl Vector {
     }
 
     /// Return a new vector, rotated 90 degrees clockwise.
-    pub fn clockwise(&self) -> Vector {
+    pub const fn clockwise(&self) -> Vector {
         // (-1, 0) -> (0, 1) -> (1, 0) -> (0, -1)
-        Vector::new(self.columns.0, -self.rows.0)
+        Vector::new_const(self.columns.0, -self.rows.0)
     }
 
     /// Return a new vector, rotated 90 degrees counterclockwise.
-    pub fn counterclockwise(&self) -> Vector {
-        Vector::new(-self.columns.0, self.rows.0)
+    pub const fn counterclockwise(&self) -> Vector {
+        Vector::new_const(-self.columns.0, self.rows.0)
     }
 
     // Return a new vector, facing the opposite direction of this one

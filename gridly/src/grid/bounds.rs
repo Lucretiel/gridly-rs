@@ -9,8 +9,6 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 /// This trait doesn't provide any direct grid functionality, but instead
 /// provides the bounds checking which is generic to all of the different
 /// kinds of grid.
-///
-/// Note for implementors:
 pub trait BaseGridBounds {
     /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
     /// const for any given grid.
@@ -18,39 +16,56 @@ pub trait BaseGridBounds {
 
     /// Return the root location (ie, the top left) of the grid. For most grids,
     /// this is (0, 0), but some grids may include negatively indexed locations,
-    /// or even offsets. This value MUST be const for any given grid.
+    /// or even offsets. This value MUST be const for any given grid. All valid
+    /// locations have `location >= root && location < (root + dimensions)`.
+    #[inline]
     fn root(&self) -> Location {
-        Location::new(0, 0)
+        Location::zero()
     }
 }
 
 impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a G {
+    #[inline]
     fn dimensions(&self) -> Vector {
         (**self).dimensions()
     }
+
+    #[inline]
     fn root(&self) -> Location {
         (**self).root()
     }
 }
 
 impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a mut G {
+    #[inline]
     fn dimensions(&self) -> Vector {
         (**self).dimensions()
     }
+
+    #[inline]
     fn root(&self) -> Location {
         (**self).root()
     }
 }
 
 pub trait GridBounds: BaseGridBounds {
+    /// Get the outer root of the grid; that is, the location for which all
+    /// valid locations in the grid have `row < outer.row && column < outer.column`
+    #[inline]
+    fn outer_root(&self) -> Location {
+        self.root() + self.dimensions()
+    }
+
     /// Get the height of the grid in [`Rows`]. This value MUST be const for
     /// any given grid.
+    #[inline]
     fn num_rows(&self) -> Rows {
         self.dimensions().rows
     }
 
     /// Get the width of the grid, in [`Columns`]. This value MUST be const for
     /// any given grid.
+    #[inline]
     fn num_columns(&self) -> Columns {
         self.dimensions().columns
     }
@@ -64,6 +79,7 @@ pub trait GridBounds: BaseGridBounds {
     /// Return the index of the topmost row of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid.
+    #[inline]
     fn root_row(&self) -> Row {
         self.root().row
     }
@@ -71,6 +87,7 @@ pub trait GridBounds: BaseGridBounds {
     /// Return the index of the leftmost column of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid.
+    #[inline]
     fn root_column(&self) -> Column {
         self.root().column
     }
@@ -144,6 +161,7 @@ pub trait GridBounds: BaseGridBounds {
     }
 
     /// Returns true if a locaton is inside the bounds of this grid.
+    #[inline]
     fn location_in_bounds(&self, location: impl Into<Location>) -> bool {
         self.check_location(location).is_ok()
     }
