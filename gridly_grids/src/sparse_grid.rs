@@ -16,6 +16,11 @@ use gridly::prelude::*;
 /// `PartialEq`) will be removed from the hash table. Conversely, getting a
 /// mutable reference to an unnocupied cell will insert a clone of the default
 /// at that location, which can then be mutated.
+///
+/// Note about interior mutability: When a user gets a reference to an unoccupied
+/// cell, the reference will be to the stored default value. This means that if
+/// the user mutates the cell somehow (for instance, with a `RefCell`), those
+/// changes will appear in all unoccupied cells.
 #[derive(Debug, Clone)]
 pub struct SparseGrid<T: Clone + PartialEq> {
     root: Location,
