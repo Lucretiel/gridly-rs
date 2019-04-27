@@ -32,14 +32,14 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash {
     type Converse: Component<Converse = Self>;
 
     /// The associated vector component ([`Rows`] or [`Columns`])
-    type Distance: VecComponent;
+    type Distance: VecComponent<Point = Self>;
 
     /// Get this component type from a [`Location`].
     ///
     /// Example:
     ///
     /// ```
-    /// use gridly::location::{Component, Row, Column, Location};
+    /// use gridly::prelude::*;
     ///
     /// let loc = Location::new(2, 5);
     /// assert_eq!(Row::from_location(&loc), Row(2));
@@ -54,25 +54,52 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash {
     /// Example:
     ///
     /// ```
-    /// use gridly::location::{Component, Row, Column, Location};
+    /// use gridly::prelude::*;
     ///
     /// let loc = Row(2).combine(Column(5));
-    /// assert_eq!(loc, (2, 5).into());
+    /// assert_eq!(loc, Location::new(2, 5));
     /// assert_eq!(loc, Row(2) + Column(5));
     /// ```
     fn combine(self, other: Self::Converse) -> Location;
 
     /// Return the lowercase name of this component type– "row" or "column".
     /// Intended for debug printing, error messages, etc.
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Row::name(), "row");
+    /// assert_eq!(Column::name(), "column");
+    /// ```
     fn name() -> &'static str;
 
     /// Get the integer value of this component
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Row(5).value(), 5);
+    /// ```
     fn value(self) -> isize;
 
-    /// Add a distance to this component.
+    /// Add a distance to this component. This method is provided because we can't
+    /// require a trait bound on `Add` for `Component`, but in general just using
+    /// `+` is preferable.
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Row(4).add(Rows(5)), Row(9));
+    /// ```
     fn add(self, amount: Self::Distance) -> Self;
 
     /// Find the distance between two components, using this component as the origin
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Row(3).distance_to(Row(8)), Rows(5));
+    /// ```
     fn distance_to(self, target: Self) -> Self::Distance {
         target.distance_from(self)
     }
@@ -111,6 +138,9 @@ macro_rules! make_component {
         $name:literal
     ) => {
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[doc = "A `"]
+        #[doc = $name]
+        #[doc = "` component of a [`Location`]"]
         pub struct $Name(pub isize);
 
         /// Adding a component to its converse (ie, a [`Row`] to a [`Column`])

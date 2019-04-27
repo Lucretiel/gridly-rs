@@ -26,7 +26,7 @@ pub trait Component:
     type Converse: Component<Converse = Self>;
 
     /// The assoicated location component type ([`Row`] or [`Column`])
-    type Point: LocComponent;
+    type Point: LocComponent<Distance = Self>;
 
     /// Get this compnent from a [`Vector`]
     fn from_vector(vector: &Vector) -> Self;

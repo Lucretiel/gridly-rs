@@ -2,6 +2,14 @@
 	"folders":
 	[
 		{
+			"file_exclude_patterns":
+			[
+				"Cargo.lock"
+			],
+			"folder_exclude_patterns":
+			[
+				"target"
+			],
 			"path": "."
 		}
 	]

@@ -1,3 +1,5 @@
+use core::fmt::{Display, Formatter, self};
+
 use crate::location::component::{
     ColumnRange, ColumnRangeError, Range as IndexRange, RangeError, RowRange, RowRangeError,
 };
@@ -134,7 +136,7 @@ pub trait GridBounds: BaseGridBounds {
 
     #[inline]
     fn component_in_bounds<C: LocComponent>(&self, c: C) -> bool {
-        self.range().in_bounds(c)
+        self.check_component(c).is_ok()
     }
 
     #[inline]
@@ -193,3 +195,24 @@ impl From<ColumnRangeError> for BoundsError {
         BoundsError::Column(err)
     }
 }
+
+impl Display for BoundsError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            BoundsError::Row(err) => write!(f, "Row out of bounds: {}", err),
+            BoundsError::Column(err) => write!(f, "Column out of bounds: {}", err),
+        }
+    }
+}
+
+// TODO: Add this when we figure out how to make it compatible with no_std
+/*
+impl<T: Component> Error for BoundsError {
+    fn source(&self) -> Option<&(Error + 'static)> {
+        match self {
+            BoundsError::Row(err) => Some(err),
+            BoundsError::Column(err) => Some(err),
+        }
+    }
+}
+*/

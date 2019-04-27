@@ -18,7 +18,7 @@ pub enum Direction {
     Right,
 }
 
-pub use self::Direction::{Up, Down, Left, Right};
+pub use self::Direction::{Down, Left, Right, Up};
 
 impl Direction {
     /// Return a vector with the given length in this direction

@@ -10,7 +10,10 @@ pub struct Range<C: Component> {
     range: component::Range<C::Converse>,
 }
 
-/// A range over a set of `Row` or `Column` indexes.
+/// A range over a set of `Row` or `Column` indexes. The generic parameter
+/// is the direction of the range; that is to say, a `Range<Row>` is a range
+/// of `Row` locations– each location in the range has the same `row` but a
+/// different `column`
 impl<C: Component> Range<C> {
     pub fn new(index: C, range: component::Range<C::Converse>) -> Self {
         Range { index, range }
@@ -41,7 +44,7 @@ impl<C: Component> Range<C> {
     }
 
     pub fn size(&self) -> Vector {
-        self.range.size().into()
+        self.end() - self.start()
     }
 }
 

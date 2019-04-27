@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::iter::FusedIterator;
+use std::ops::Index;
 
 use gridly::prelude::*;
 
@@ -118,6 +119,16 @@ impl<T: Clone + PartialEq> BaseGrid for SparseGrid<T> {
     /// in the hash table, return a reference to the grid's default value.
     unsafe fn get_unchecked(&self, loc: Location) -> &T {
         self.storage.get(&loc).unwrap_or(&self.default)
+    }
+}
+
+impl<T: Clone + PartialEq> Index<Location> for SparseGrid<T> {
+    type Output = T;
+
+    fn index(&self, location: Location) -> &T {
+        self.get(location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location, bounds_err)
+        })
     }
 }
 

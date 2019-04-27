@@ -27,13 +27,13 @@ pub trait BaseGrid: GridBounds {
     /// been performed on the location, which means that implementors are allowed
     /// to do their own unsafe `get` operations on the underlying storage,
     /// where relevant.
-    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item;
+    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item;
 }
 
 impl<G: BaseGrid> BaseGrid for &G {
     type Item = G::Item;
 
-    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
+    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item {
         (**self).get_unchecked(location)
     }
 }
@@ -41,7 +41,7 @@ impl<G: BaseGrid> BaseGrid for &G {
 impl<G: BaseGrid> BaseGrid for &mut G {
     type Item = G::Item;
 
-    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
+    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item {
         (**self).get_unchecked(location)
     }
 }
@@ -55,14 +55,12 @@ pub trait Grid: BaseGrid {
     /// is out of bounds with the specific boundary violation.
     fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.get_unchecked(loc) })
+            .map(move |loc| unsafe { self.get_unchecked(&loc) })
     }
 
     // Get a view of a grid, over its rows or columns. A view of a grid is
     // similar to a slice, but instead of being a view over specific elements,
     // it's a view over the rows and columns.
-    //
-    // For instance
     fn view<T: LocComponent>(&self) -> View<Self, T> {
         View::new(self)
     }
@@ -144,8 +142,8 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
 
     /// Get a view of a single row or column of the grid. Returns a range error
     /// if the index is out of range.
-    pub fn get(&self, index: impl Into<T>) -> Result<SingleView<'a, G, T>, RangeError<T>> {
-        SingleView::new(self.grid, index.into())
+    pub fn get(&self, index: T) -> Result<SingleView<'a, G, T>, RangeError<T>> {
+        SingleView::new(self.grid, index)
     }
 
     /// Get a range over all the row or column indexes of this view.
@@ -178,8 +176,20 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
 /// A view over the rows of a grid.
 pub type RowsView<'a, G> = View<'a, G, Row>;
 
+impl<'a, G: Grid + ?Sized> RowsView<'a, G> {
+    pub fn row(&self, row: impl Into<Row>) -> Result<RowView<'a, G>, RowRangeError> {
+        self.get(row.into())
+    }
+}
+
 /// A view over the columns of a grid.
 pub type ColumnsView<'a, G> = View<'a, G, Column>;
+
+impl<'a, G: Grid + ?Sized> ColumnsView<'a, G> {
+    pub fn column(&self, column: impl Into<Column>) -> Result<ColumnView<'a, G>, ColumnRangeError> {
+        self.get(column.into())
+    }
+}
 
 /// View of a single Row or Column of a grid.
 ///
@@ -218,17 +228,17 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     /// Get a particular cell in the row or column by an index, without bounds
     /// checking the index.
     pub unsafe fn get_unchecked(&self, cross: T::Converse) -> &'a G::Item {
-        self.grid.get_unchecked(self.index.combine(cross))
+        self.grid.get_unchecked(&self.index.combine(cross))
     }
 
     /// Get a particular cell in the row or column, or return an error if the
     /// index is out of bounds.
     pub fn get(
         &self,
-        cross: impl Into<T::Converse>,
+        cross: T::Converse,
     ) -> Result<&'a G::Item, RangeError<T::Converse>> {
         self.grid
-            .check_component(cross.into())
+            .check_component(cross)
             .map(move |cross| unsafe { self.get_unchecked(cross) })
     }
 
@@ -248,7 +258,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
                  + Clone {
         let grid = self.grid;
         self.range()
-            .map(move |loc| unsafe { grid.get_unchecked(loc) })
+            .map(move |loc| unsafe { grid.get_unchecked(&loc) })
     }
 
     /// Get an iterator over `(Location, &Item)` pairs for this row or column.
@@ -262,12 +272,12 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
                  + Clone {
         let grid = self.grid;
         self.range()
-            .map(move |loc| (loc, unsafe { grid.get_unchecked(loc) }))
+            .map(move |loc| (loc, unsafe { grid.get_unchecked(&loc) }))
     }
 
     /// Get an iterator over `(Index, &Item)` pairs for this column. For instance,
     /// for a `RowView`, this iterates over `(Column, &Item)` pairs.
-    pub fn with_index(
+    pub fn with_indices(
         &self,
     ) -> impl Iterator<Item = (T::Converse, &'a G::Item)>
                  + DoubleEndedIterator
@@ -278,9 +288,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
         let grid = self.grid;
         let index = self.index;
         self.grid.range().map(move |cross: T::Converse| {
-            (cross, unsafe {
-                grid.get_unchecked(cross.combine(index))
-            })
+            (cross, unsafe { grid.get_unchecked(&cross.combine(index)) })
         })
     }
 }
@@ -289,13 +297,28 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> Index<T::Converse> for SingleView<'a
     type Output = G::Item;
 
     fn index(&self, idx: T::Converse) -> &G::Item {
-        // TODO: insert error message once RangeError implements Error + Display
         self.get(idx)
-            .unwrap_or_else(|_err| panic!("{} out of range", T::name()))
+            .unwrap_or_else(|err| match err {
+                RangeError::TooHigh(max) => panic!("{:?} too high, must be < {:?}", idx, max),
+                RangeError::TooLow(min) => panic!("{:?} too low, must be >= {:?}", idx, min),
+            })
     }
 }
 
 // TODO: IntoIterator
 
 pub type RowView<'a, G> = SingleView<'a, G, Row>;
+
+impl<'a, G: Grid + ?Sized> RowView<'a, G> {
+    pub fn column(&self, column: impl Into<Column>) -> Result<&'a G::Item, ColumnRangeError> {
+        self.get(column.into())
+    }
+}
+
 pub type ColumnView<'a, G> = SingleView<'a, G, Column>;
+
+impl<'a, G: Grid + ?Sized> ColumnView<'a, G> {
+    pub fn row(&self, row: impl Into<Row>) -> Result<&'a G::Item, RowRangeError> {
+        self.get(row.into())
+    }
+}

@@ -16,7 +16,7 @@ pub use component::{Columns, Component, Rows};
 /// all have this property, as well as a tuple of (Into<Rows>, Into<Columns>).
 ///
 /// [Location]: crate::location::Location
-#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Hash, Eq)]
 pub struct Vector {
     pub rows: Rows,
     pub columns: Columns,
@@ -119,10 +119,21 @@ impl From<Direction> for Vector {
     }
 }
 
-impl<R: Into<Rows>, C: Into<Columns>> From<(R, C)> for Vector {
-    #[inline]
-    fn from(value: (R, C)) -> Vector {
+impl From<(isize, isize)> for Vector {
+    fn from(value: (isize, isize)) -> Vector {
         Vector::new(value.0, value.1)
+    }
+}
+
+impl From<(Rows, Columns)> for Vector {
+    fn from(value: (Rows, Columns)) -> Vector {
+        Vector::new(value.0, value.1)
+    }
+}
+
+impl From<(Columns, Rows)> for Vector {
+    fn from(value: (Columns, Rows)) -> Vector {
+        Vector::new(value.1, value.0)
     }
 }
 
@@ -195,5 +206,12 @@ impl Neg for Vector {
     #[inline]
     fn neg(self) -> Vector {
         self.reverse()
+    }
+}
+
+impl<T: Into<Vector> + Copy> PartialEq<T> for Vector {
+    fn eq(&self, rhs: &T) -> bool {
+        let rhs = (*rhs).into();
+        self.rows == rhs.rows && self.columns == rhs.columns
     }
 }

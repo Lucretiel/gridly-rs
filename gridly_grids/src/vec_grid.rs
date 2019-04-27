@@ -1,4 +1,5 @@
 use std::iter::repeat_with;
+use std::ops::Index;
 
 use gridly::prelude::*;
 
@@ -51,8 +52,10 @@ impl<T> VecGrid<T> {
     /// ```
     /// use gridly_grids::VecGrid;
     /// use gridly::prelude::*;
+    /// use gridly::shorthand::L;
     ///
-    /// let grid = VecGrid::new_fill_with((2, 2), || "Hello, World!".to_string()).unwrap();
+    /// let grid = VecGrid::new_fill_with(Rows(2) + Columns(2), || "Hello, World!".to_string()).unwrap();
+    /// assert_eq!(grid[L(1, 0)], "Hello, World!")
     /// ```
     ///
     /// See also [`new`] for filling a grid with a type's [default] value, and
@@ -128,6 +131,16 @@ impl<T> BaseGrid for VecGrid<T> {
     unsafe fn get_unchecked(&self, location: Location) -> &T {
         self.storage
             .get_unchecked(self.index_for_location(&location))
+    }
+}
+
+impl<T> Index<Location> for VecGrid<T> {
+    type Output = T;
+
+    fn index(&self, location: Location) -> &T {
+        self.get(location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location, bounds_err)
+        })
     }
 }
 

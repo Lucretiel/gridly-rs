@@ -1,6 +1,7 @@
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::ops::Range as IRange;
+use core::fmt::{Display, Formatter, self};
 
 use crate::location::{self, Column, Component, Row};
 
@@ -131,7 +132,7 @@ impl<C: Component> Range<C> {
 
     #[inline]
     /// Check that a `Row` or `Column` is in bounds for this range.
-    pub fn in_bounds(&self, loc: C) -> bool {
+    pub fn in_bounds(&self, loc: impl Into<C>) -> bool {
         self.check(loc).is_ok()
     }
 
@@ -142,12 +143,13 @@ impl<C: Component> Range<C> {
     ///
     /// ```
     /// use gridly::location::component::{Range, Row, Column};
+    /// use gridly::shorthand::L;
     ///
     /// let mut range = Range::bounded(Row(3), Row(6)).combine(Column(4));
     ///
-    /// assert_eq!(range.next(), Some((3, 4).into()));
-    /// assert_eq!(range.next(), Some((4, 4).into()));
-    /// assert_eq!(range.next(), Some((5, 4).into()));
+    /// assert_eq!(range.next(), Some(L(3, 4)));
+    /// assert_eq!(range.next(), Some(L(4, 4)));
+    /// assert_eq!(range.next(), Some(L(5, 4)));
     /// assert_eq!(range.next(), None);
     /// ```
     pub fn combine(self, index: C::Converse) -> location::Range<C::Converse> {
@@ -223,6 +225,18 @@ pub enum RangeError<T: Component> {
     /// error value is considered too high).
     TooHigh(T),
 }
+
+impl<T: Component> Display for RangeError<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            RangeError::TooLow(min) => write!(f, "Too low, must be >= {:?}", min),
+            RangeError::TooHigh(max) => write!(f, "Too high, must be < {:?}", max),
+        }
+    }
+}
+
+// TODO: Add this when we figure out how to make it compatible with no_std
+/* impl<T: Component> Error for Component {} */
 
 pub type RowRangeError = RangeError<Row>;
 pub type ColumnRangeError = RangeError<Column>;

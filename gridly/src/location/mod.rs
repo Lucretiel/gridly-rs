@@ -18,7 +18,7 @@ pub use range::Range;
 /// count downward and increasing columns count rightward.
 ///
 /// Locations support arithmetic operations with Vectors.
-#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Hash, Eq)]
 pub struct Location {
     pub row: Row,
     pub column: Column,
@@ -94,9 +94,15 @@ impl Location {
     }
 }
 
-impl<R: Into<Row>, C: Into<Column>> From<(R, C)> for Location {
-    fn from(value: (R, C)) -> Location {
+impl From<(Row, Column)> for Location {
+    fn from(value: (Row, Column)) -> Location {
         Location::new(value.0, value.1)
+    }
+}
+
+impl From<(Column, Row)> for Location {
+    fn from(value: (Column, Row)) -> Location {
+        Location::new(value.1, value.0)
     }
 }
 
@@ -142,6 +148,13 @@ impl Sub<Location> for Location {
     }
 }
 
+impl<T: Into<Location> + Copy> PartialEq<T> for Location {
+    fn eq(&self, rhs: &T) -> bool {
+        let rhs = (*rhs).into();
+        self.row == rhs.row && self.column == rhs.column
+    }
+}
+
 /// Locations have a partial ordering. `loc1` is considered greater than `loc2` iff
 /// its row or its column are greater than those in `loc2`. This chart shows an
 /// example:
@@ -160,8 +173,9 @@ impl Sub<Location> for Location {
 ///
 /// For a strict ordering between all possible locations, see the [`OrderedLocation`]
 /// wrapper struct, which allows for row-major or column-major orderings.
-impl PartialOrd for Location {
-    fn partial_cmp(&self, rhs: &Location) -> Option<Ordering> {
+impl<T: Into<Location> + Copy> PartialOrd<T> for Location {
+    fn partial_cmp(&self, rhs: &T) -> Option<Ordering> {
+        let rhs = (*rhs).into();
         match (self.row.cmp(&rhs.row), self.column.cmp(&rhs.column)) {
             (Ordering::Greater, Ordering::Less) | (Ordering::Less, Ordering::Greater) => None,
             (o1, o2) => Some(o1.then(o2)),
@@ -171,24 +185,31 @@ impl PartialOrd for Location {
 
 #[cfg(test)]
 mod partial_ord_tests {
-    use crate::prelude::{Location, Vector, Rows, Columns};
+    use crate::prelude::{Columns, Location, Rows, Vector};
+    use crate::shorthand::{R, C, L};
     use core::cmp::Ordering;
 
     const ZERO: Location = Location::zero();
-    const DIAG: Vector = Vector{rows: Rows(1), columns: Columns(1)};
-    const BAD_DIAG: Vector = Vector{rows: Rows(-1), columns: Columns(1)};
+    const DIAG: Vector = Vector {
+        rows: Rows(1),
+        columns: Columns(1),
+    };
+    const BAD_DIAG: Vector = Vector {
+        rows: Rows(-1),
+        columns: Columns(1),
+    };
 
     #[test]
     fn test_eq() {
-        assert_eq!(ZERO, Location::new(0, 0))
+        assert_eq!(ZERO, (R(0), C(0)));
+        assert_eq!(ZERO, L(0, 0));
     }
 
     #[test]
-    fn test_orderliness()
-    {
-        assert_eq!(ZERO.partial_cmp(&ZERO.above(1)), Some(Ordering::Greater));
-        assert_eq!(ZERO.partial_cmp(&ZERO.left(1)), Some(Ordering::Greater));
-        assert_eq!(ZERO.partial_cmp(&(ZERO - DIAG)), Some(Ordering::Greater));
+    fn test_orderliness() {
+        assert_eq!(ZERO.partial_cmp(&L(-1, 0)), Some(Ordering::Greater));
+        assert_eq!(ZERO.partial_cmp(&L(0, -1)), Some(Ordering::Greater));
+        assert_eq!(ZERO.partial_cmp(&(R(-1), C(-1))), Some(Ordering::Greater));
 
         assert_eq!(ZERO.partial_cmp(&ZERO.below(1)), Some(Ordering::Less));
         assert_eq!(ZERO.partial_cmp(&ZERO.right(1)), Some(Ordering::Less));
@@ -198,16 +219,15 @@ mod partial_ord_tests {
         assert_eq!(ZERO.partial_cmp(&(ZERO - BAD_DIAG)), None);
 
         assert_eq!(ZERO.partial_cmp(&ZERO), Some(Ordering::Equal));
-
     }
 
     #[test]
     fn test_bad_diagonal() {
-        for location in &[Location::new(1, -1), Location::new(-1, 1)] {
-            assert!(! (ZERO < *location));
-            assert!(! (ZERO > *location));
-            assert!(! (ZERO <= *location));
-            assert!(! (ZERO >= *location));
+        for location in &[L(1, -1), L(-1, 1)] {
+            assert!(!(ZERO < *location));
+            assert!(!(ZERO > *location));
+            assert!(!(ZERO <= *location));
+            assert!(!(ZERO >= *location));
         }
     }
 }
@@ -224,20 +244,12 @@ pub struct OrderedLocation<Major: Component> {
     phantom: PhantomData<Major>,
 }
 
-impl<Major: Component> OrderedLocation<Major> {
+impl<M: Component> OrderedLocation<M> {
     pub fn new(location: Location) -> Self {
         Self {
             location,
             phantom: PhantomData,
         }
-    }
-
-    /// To simplify the ordering implementation, convert this `Location` into
-    /// a tuple, where the `Major` component is the first value its converse
-    /// is the second value. This allows the `Ord
-    #[inline]
-    fn as_tuple(&self) -> (Major, Major::Converse) {
-        (self.get_component(), self.get_component())
     }
 }
 
@@ -301,9 +313,13 @@ impl<M: Component> PartialOrd for OrderedLocation<M> {
     }
 }
 
-impl<Major: Component> Ord for OrderedLocation<Major> {
+impl<M: Component> Ord for OrderedLocation<M> {
     fn cmp(&self, rhs: &Self) -> Ordering {
-        self.as_tuple().cmp(&rhs.as_tuple())
+        M::from_location(self)
+            .cmp(&M::from_location(rhs))
+            .then_with(move || {
+                M::Converse::from_location(self).cmp(&M::Converse::from_location(rhs))
+            })
     }
 }
 
