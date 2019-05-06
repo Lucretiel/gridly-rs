@@ -117,8 +117,8 @@ impl<T: Clone + PartialEq> BaseGrid for SparseGrid<T> {
 
     /// Get a reference to a value in the grid. If the location is not present
     /// in the hash table, return a reference to the grid's default value.
-    unsafe fn get_unchecked(&self, loc: Location) -> &T {
-        self.storage.get(&loc).unwrap_or(&self.default)
+    unsafe fn get_unchecked(&self, loc: &Location) -> &T {
+        self.storage.get(loc).unwrap_or(&self.default)
     }
 }
 
@@ -126,20 +126,19 @@ impl<T: Clone + PartialEq> Index<Location> for SparseGrid<T> {
     type Output = T;
 
     fn index(&self, location: Location) -> &T {
-        self.get(location).unwrap_or_else(|bounds_err| {
-            panic!("{:?} out of bounds: {}", location, bounds_err)
-        })
+        self.get(location)
+            .unwrap_or_else(|bounds_err| panic!("{:?} out of bounds: {}", location, bounds_err))
     }
 }
 
 impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
     /// Set the value of a cell in the grid. If this value compares equal to
     /// the default, remove it from the underlying hash table.
-    unsafe fn set_unchecked(&mut self, location: Location, value: T) {
+    unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
         if value == self.default {
-            self.storage.remove(&location);
+            self.storage.remove(location);
         } else {
-            self.storage.insert(location, value);
+            self.storage.insert(*location, value);
         }
     }
 }
@@ -148,10 +147,10 @@ impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
     /// Get a mutable reference to a cell in the grid. If this cell is unoccupied,
     /// the default is cloned and inserted into the underlying hash table at this
     /// location.
-    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut T {
+    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
         let default = &self.default;
         self.storage
-            .entry(location)
+            .entry(*location)
             .or_insert_with(move || default.clone())
     }
 }

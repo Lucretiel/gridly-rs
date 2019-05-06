@@ -1,34 +1,34 @@
+use core::fmt::{self, Display, Formatter};
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
-use core::ops::Range as IRange;
-use core::fmt::{Display, Formatter, self};
+use core::ops::Range;
 
-use crate::location::{self, Column, Component, Row};
+use crate::location::{Column, Component, Location, Row};
 
-// TODO: replace this with Range<C> once Step is stabilized
+// TODO: replace this with ops::Range<C> once Step is stabilized
 /// Range over `Row` or `Column` indices.
 ///
 /// This struct represents a range over `Row` or `Column` values. Much like
-/// the standard Rust range, it is half open, bounded by `[start..end)`. It
-/// supports simple accessors and iteration.
+/// the standard [Rust `Range`](::core::ops::Range), it is half open, bounded
+/// by `[start..end)`. It supports simple accessors and iteration.
 ///
 /// This struct will go away when
-/// `std::ops::Range<T>` is stabilized for custom `T` types.
+/// `std::ops::ComponentRange<T>` is stabilized for custom `T` types.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Range<C: Component> {
-    range: IRange<isize>,
+pub struct ComponentRange<C: Component> {
+    range: Range<isize>,
     phanton: PhantomData<C>,
 }
 
-impl<C: Component> Range<C> {
-    /// Create a range bounded by `[start .. end)`
+impl<C: Component> ComponentRange<C> {
+    /// Create a range bounded by `[start .. end)`.
     ///
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::component::{Range, Row};
+    /// use gridly::location::{ComponentRange, Row};
     /// use gridly::vector::Rows;
-    /// let mut range = Range::bounded(Row(0), Row(3));
+    /// let mut range = ComponentRange::bounded(Row(0), Row(3));
     ///
     /// assert_eq!(range.size(), Rows(3));
     /// assert_eq!(range.start(), Row(0));
@@ -39,8 +39,9 @@ impl<C: Component> Range<C> {
     /// assert_eq!(range.next(), Some(Row(2)));
     /// assert_eq!(range.next(), None);
     /// ```
+    #[inline]
     pub fn bounded(start: C, end: C) -> Self {
-        Range {
+        ComponentRange {
             phanton: PhantomData,
             range: start.value()..end.value(),
         }
@@ -51,9 +52,9 @@ impl<C: Component> Range<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::component::{Range, Column};
+    /// use gridly::location::{ComponentRange, Column};
     /// use gridly::vector::Columns;
-    /// let mut range = Range::span(Column(1), Columns(2));
+    /// let mut range = ComponentRange::span(Column(1), Columns(2));
     ///
     /// assert_eq!(range.size(), Columns(2));
     /// assert_eq!(range.start(), Column(1));
@@ -65,7 +66,7 @@ impl<C: Component> Range<C> {
     /// ```
     #[inline]
     pub fn span(start: C, size: C::Distance) -> Self {
-        Self::bounded(start, start.add(size))
+        Self::bounded(start, start.add_distance(size))
     }
 
     /// Get the start index of the range
@@ -80,18 +81,18 @@ impl<C: Component> Range<C> {
         self.range.end.into()
     }
 
-    #[inline]
     /// Get the size of the range
     ///
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::component::{Range, Row};
+    /// use gridly::location::{ComponentRange, Row};
     /// use gridly::vector::Rows;
     ///
-    /// let range = Range::bounded(Row(-1), Row(3));
+    /// let range = ComponentRange::bounded(Row(-1), Row(3));
     /// assert_eq!(range.size(), Rows(4));
     /// ```
+    #[inline]
     pub fn size(&self) -> C::Distance {
         self.start().distance_to(self.end())
     }
@@ -104,10 +105,10 @@ impl<C: Component> Range<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::component::{Range, Row, RangeError};
+    /// use gridly::location::{ComponentRange, Row, RangeError};
     /// use gridly::vector::Rows;
     ///
-    /// let range = Range::span(Row(3), Rows(5));
+    /// let range = ComponentRange::span(Row(3), Rows(5));
     /// assert_eq!(range.check(Row(4)), Ok(Row(4)));
     /// assert_eq!(range.check(Row(0)), Err(RangeError::TooLow(Row(3))));
     /// assert_eq!(range.check(Row(8)), Err(RangeError::TooHigh(Row(8))));
@@ -142,23 +143,25 @@ impl<C: Component> Range<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::component::{Range, Row, Column};
+    /// use gridly::location::{ComponentRange, Row, Column};
     /// use gridly::shorthand::L;
     ///
-    /// let mut range = Range::bounded(Row(3), Row(6)).combine(Column(4));
+    /// let mut range = ComponentRange::bounded(Row(3), Row(6)).combine(Column(4));
     ///
     /// assert_eq!(range.next(), Some(L(3, 4)));
     /// assert_eq!(range.next(), Some(L(4, 4)));
     /// assert_eq!(range.next(), Some(L(5, 4)));
     /// assert_eq!(range.next(), None);
     /// ```
-    pub fn combine(self, index: C::Converse) -> location::Range<C::Converse> {
-        location::Range::new(index, self)
+    pub fn combine(self, index: C::Converse) -> LocationRange<C::Converse> {
+        LocationRange::new(index, self)
     }
 }
 
+// TODO: impl RangeBounds for ComponentRange.
+
 // TODO: add a bunch more iterator methods that forward to self.range.
-impl<C: Component> Iterator for Range<C> {
+impl<C: Component> Iterator for ComponentRange<C> {
     type Item = C;
 
     #[inline]
@@ -182,18 +185,19 @@ impl<C: Component> Iterator for Range<C> {
     }
 }
 
-impl<C: Component> DoubleEndedIterator for Range<C> {
+impl<C: Component> DoubleEndedIterator for ComponentRange<C> {
+    #[inline]
     fn next_back(&mut self) -> Option<C> {
         self.range.next_back().map(C::from)
     }
 }
 
-impl<C: Component> ExactSizeIterator for Range<C> {}
-impl<C: Component> FusedIterator for Range<C> {}
+impl<C: Component> ExactSizeIterator for ComponentRange<C> {}
+impl<C: Component> FusedIterator for ComponentRange<C> {}
 // TODO: TrustedLen
 
-pub type RowRange = Range<Row>;
-pub type ColumnRange = Range<Column>;
+pub type RowRange = ComponentRange<Row>;
+pub type ColumnRange = ComponentRange<Column>;
 
 // TODO: Error implementation
 
@@ -207,8 +211,8 @@ pub type ColumnRange = Range<Column>;
 /// # Example:
 ///
 /// ```
-/// use gridly::location::component::{Range, Row, RangeError};
-/// let range = Range::bounded(Row(0), Row(10));
+/// use gridly::location::{ComponentRange, Row, RangeError};
+/// let range = ComponentRange::bounded(Row(0), Row(10));
 ///
 /// assert_eq!(range.check(-5), Err(RangeError::TooLow(Row(0))));
 /// assert_eq!(range.check(15), Err(RangeError::TooHigh(Row(10))));
@@ -240,3 +244,98 @@ impl<T: Component> Display for RangeError<T> {
 
 pub type RowRangeError = RangeError<Row>;
 pub type ColumnRangeError = RangeError<Column>;
+
+/// A range over [`Location`]s in a given [`Row`] or [`Column`]. The generic
+/// parameter is the direction of the range; that is to say, a
+/// `LocationRange<Row>` is a range of locations in a given row. Each location
+/// in the range has the same `row` but a different `column`.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct LocationRange<C: Component> {
+    index: C,
+    range: ComponentRange<C::Converse>,
+}
+
+impl<C: Component> LocationRange<C> {
+    #[inline]
+    pub fn new(index: C, range: ComponentRange<C::Converse>) -> Self {
+        LocationRange { index, range }
+    }
+
+    #[inline]
+    pub fn bounded(index: C, start: C::Converse, end: C::Converse) -> Self {
+        Self::new(index, ComponentRange::bounded(start, end))
+    }
+
+    #[inline]
+    pub fn span(index: C, start: C::Converse, size: <C::Converse as Component>::Distance) -> Self {
+        Self::bounded(index, start, start.add_distance(size))
+    }
+
+    #[inline]
+    pub fn rooted(root: Location, size: <C::Converse as Component>::Distance) -> Self {
+        Self::span(root.get_component(), root.get_component(), size)
+    }
+
+    #[inline]
+    pub fn component_range(&self) -> ComponentRange<C::Converse> {
+        self.range.clone()
+    }
+
+    #[inline]
+    pub fn index(&self) -> C {
+        self.index
+    }
+
+    pub fn start(&self) -> Location {
+        self.range.start().combine(self.index)
+    }
+
+    pub fn end(&self) -> Location {
+        self.range.end().combine(self.index)
+    }
+
+    pub fn size(&self) -> <C::Converse as Component>::Distance {
+        self.range.start().distance_to(self.range.end())
+    }
+}
+
+impl<C: Component> Iterator for LocationRange<C> {
+    type Item = Location;
+
+    #[inline]
+    fn next(&mut self) -> Option<Location> {
+        self.range
+            .next()
+            .map(move |cross| cross.combine(self.index))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
+    }
+
+    #[inline]
+    fn nth(&mut self, n: usize) -> Option<Location> {
+        self.range
+            .nth(n)
+            .map(move |cross| cross.combine(self.index))
+    }
+
+    #[inline]
+    fn last(self) -> Option<Location> {
+        let index = self.index;
+        self.range.last().map(move |cross| cross.combine(index))
+    }
+}
+
+impl<C: Component> DoubleEndedIterator for LocationRange<C> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.range
+            .next_back()
+            .map(move |cross| cross.combine(self.index))
+    }
+}
+
+impl<C: Component> FusedIterator for LocationRange<C> {}
+impl<C: Component> ExactSizeIterator for LocationRange<C> {}
+// TODO: TrustedLen

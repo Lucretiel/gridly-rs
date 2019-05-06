@@ -128,9 +128,9 @@ impl<T> BaseGridBounds for VecGrid<T> {
 impl<T> BaseGrid for VecGrid<T> {
     type Item = T;
 
-    unsafe fn get_unchecked(&self, location: Location) -> &T {
+    unsafe fn get_unchecked(&self, location: &Location) -> &T {
         self.storage
-            .get_unchecked(self.index_for_location(&location))
+            .get_unchecked(self.index_for_location(location))
     }
 }
 
@@ -138,22 +138,21 @@ impl<T> Index<Location> for VecGrid<T> {
     type Output = T;
 
     fn index(&self, location: Location) -> &T {
-        self.get(location).unwrap_or_else(|bounds_err| {
-            panic!("{:?} out of bounds: {}", location, bounds_err)
-        })
+        self.get(location)
+            .unwrap_or_else(|bounds_err| panic!("{:?} out of bounds: {}", location, bounds_err))
     }
 }
 
 impl<T> BaseGridSetter for VecGrid<T> {
-    unsafe fn set_unchecked(&mut self, location: Location, value: T) {
-        let index = self.index_for_location(&location);
+    unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
+        let index = self.index_for_location(location);
         *self.storage.get_unchecked_mut(index) = value;
     }
 }
 
 impl<T> BaseGridMut for VecGrid<T> {
-    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut T {
-        let index = self.index_for_location(&location);
+    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
+        let index = self.index_for_location(location);
         self.storage.get_unchecked_mut(index)
     }
 }

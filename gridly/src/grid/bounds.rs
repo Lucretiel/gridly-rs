@@ -1,9 +1,9 @@
-use core::fmt::{Display, Formatter, self};
+use core::fmt::{self, Display, Formatter};
 
-use crate::location::component::{
-    ColumnRange, ColumnRangeError, Range as IndexRange, RangeError, RowRange, RowRangeError,
-};
 use crate::location::{Column, Component as LocComponent, Location, Row};
+use crate::range::{
+    ColumnRange, ColumnRangeError, ComponentRange, RangeError, RowRange, RowRangeError,
+};
 use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
 
 /// High-level trait implementing grid sizes and boundary checking.
@@ -19,7 +19,7 @@ pub trait BaseGridBounds {
     /// Return the root location (ie, the top left) of the grid. For most grids,
     /// this is (0, 0), but some grids may include negatively indexed locations,
     /// or even offsets. This value MUST be const for any given grid. All valid
-    /// locations have `location >= root && location < (root + dimensions)`.
+    /// locations have `location >= root`.
     #[inline]
     fn root(&self) -> Location {
         Location::zero()
@@ -102,8 +102,8 @@ pub trait GridBounds: BaseGridBounds {
 
     /// Get a Range over the row or column indexes
     #[inline]
-    fn range<C: LocComponent>(&self) -> IndexRange<C> {
-        IndexRange::span(self.root_component(), self.dimension())
+    fn range<C: LocComponent>(&self) -> ComponentRange<C> {
+        ComponentRange::span(self.root_component(), self.dimension())
     }
 
     /// A range iterator over all the column indexes in this grid

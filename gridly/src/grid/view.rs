@@ -4,10 +4,8 @@ use core::marker::PhantomData;
 use core::ops::Index;
 
 use crate::grid::{BoundsError, GridBounds};
-use crate::location::component::{
-    ColumnRangeError, Range as IndexRange, RangeError, RowRangeError,
-};
-use crate::location::{Column, Component as LocComponent, Location, Range as LocationRange, Row};
+use crate::location::{Column, Component as LocComponent, Location, Row};
+use crate::range::{ColumnRangeError, ComponentRange, RangeError, RowRangeError, LocationRange};
 
 /// Base Reader trait for grids.
 ///
@@ -147,7 +145,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
     }
 
     /// Get a range over all the row or column indexes of this view.
-    pub fn range(&self) -> IndexRange<T> {
+    pub fn range(&self) -> ComponentRange<T> {
         self.grid.range()
     }
 
@@ -198,7 +196,7 @@ impl<'a, G: Grid + ?Sized> ColumnsView<'a, G> {
 /// over a single row of a grid.
 ///
 /// A `SingleView` can be indexed; for instance, a [`RowView`] can be indexed
-/// with a `Column` to a get a specific cell.
+/// with a [`Column`] to a get a specific cell.
 pub struct SingleView<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
 
@@ -233,10 +231,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
 
     /// Get a particular cell in the row or column, or return an error if the
     /// index is out of bounds.
-    pub fn get(
-        &self,
-        cross: T::Converse,
-    ) -> Result<&'a G::Item, RangeError<T::Converse>> {
+    pub fn get(&self, cross: T::Converse) -> Result<&'a G::Item, RangeError<T::Converse>> {
         self.grid
             .check_component(cross)
             .map(move |cross| unsafe { self.get_unchecked(cross) })
@@ -297,11 +292,10 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> Index<T::Converse> for SingleView<'a
     type Output = G::Item;
 
     fn index(&self, idx: T::Converse) -> &G::Item {
-        self.get(idx)
-            .unwrap_or_else(|err| match err {
-                RangeError::TooHigh(max) => panic!("{:?} too high, must be < {:?}", idx, max),
-                RangeError::TooLow(min) => panic!("{:?} too low, must be >= {:?}", idx, min),
-            })
+        self.get(idx).unwrap_or_else(|err| match err {
+            RangeError::TooHigh(max) => panic!("{:?} too high, must be < {:?}", idx, max),
+            RangeError::TooLow(min) => panic!("{:?} too low, must be >= {:?}", idx, min),
+        })
     }
 }
 
