@@ -1,4 +1,5 @@
 use std::iter::repeat_with;
+use std::mem::replace;
 use std::ops::Index;
 
 use gridly::prelude::*;
@@ -144,6 +145,11 @@ impl<T> Index<Location> for VecGrid<T> {
 }
 
 impl<T> BaseGridSetter for VecGrid<T> {
+    unsafe fn replace_unchecked(&mut self, location: &Location, value: T) -> T {
+        let index = self.index_for_location(location);
+        replace(self.storage.get_unchecked_mut(index), value)
+    }
+
     unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
         let index = self.index_for_location(location);
         *self.storage.get_unchecked_mut(index) = value;

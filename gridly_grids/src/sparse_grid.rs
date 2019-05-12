@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter::FusedIterator;
 use std::ops::Index;
@@ -19,15 +20,16 @@ use gridly::prelude::*;
 /// at that location, which can then be mutated.
 ///
 /// Note about interior mutability: When a user gets a reference to an unoccupied
-/// cell, the reference will be to the stored default value. This means that if
-/// the user mutates the cell somehow (for instance, with a `RefCell`), those
-/// changes will appear in all unoccupied cells.
+/// cell, the reference will (usually) be to the stored default value. This means
+/// that if the user mutates the cell somehow (for instance, with a `RefCell`),
+/// those changes will appear in all unoccupied cells.
 #[derive(Debug, Clone)]
 pub struct SparseGrid<T: Clone + PartialEq> {
     root: Location,
     dimensions: Vector,
     default: T,
     storage: HashMap<Location, T>,
+    clean: bool,
 }
 
 impl<T: Clone + PartialEq> SparseGrid<T> {
@@ -56,13 +58,17 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
     /// Remove all entries from the underlying hash table that compare equal to
     /// the default
     pub fn clean(&mut self) {
-        let default = &self.default;
-        self.storage.retain(move |_, value| value != default)
+        if !self.clean {
+            let default = &self.default;
+            self.storage.retain(move |_, value| value != default);
+            self.clean = true;
+        }
     }
 
     /// Remove all non-default entries from the grid
     pub fn clear(&mut self) {
-        self.storage.clear()
+        self.storage.clear();
+        self.clean = true;
     }
 
     /// Get an iterator over all of the occupied (non-default) entries in the
@@ -81,10 +87,26 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
     pub fn occuppied_entries_mut(
         &mut self,
     ) -> impl Iterator<Item = (&Location, &mut T)> + FusedIterator {
+        self.clean = false;
         let default = &self.default;
         self.storage
             .iter_mut()
             .filter(move |(_, value)| *value != default)
+    }
+
+    /// Get an iterator of mutable references to the occupied (non-default)
+    /// entries in the grid, in an arbitrary order.
+    ///
+    /// The difference between this method and occuppied_entries_mut is that
+    /// this one first [cleans](SparseGrid::clean) the underlying storage.
+    /// This means there's a higher up-front cost, but has the benefit of
+    /// providing an `ExactSizeIterator`.
+    pub fn occuppied_entries_mut_cleaned(
+        &mut self,
+    ) -> impl Iterator<Item = (&Location, &mut T)> + FusedIterator + ExactSizeIterator {
+        self.clean();
+        self.clean = false;
+        self.storage.iter_mut()
     }
 }
 
@@ -132,6 +154,15 @@ impl<T: Clone + PartialEq> Index<Location> for SparseGrid<T> {
 }
 
 impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
+    unsafe fn replace_unchecked(&mut self, location: &Location, value: Self::Item) -> Self::Item {
+        if value == self.default {
+            self.storage.remove(location).unwrap_or(value)
+        } else {
+            self.storage
+                .insert(*location, value)
+                .unwrap_or_else(|| self.default.clone())
+        }
+    }
     /// Set the value of a cell in the grid. If this value compares equal to
     /// the default, remove it from the underlying hash table.
     unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
@@ -148,6 +179,7 @@ impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
     /// the default is cloned and inserted into the underlying hash table at this
     /// location.
     unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
+        self.clean = false;
         let default = &self.default;
         self.storage
             .entry(*location)

@@ -5,7 +5,7 @@ use core::ops::Index;
 
 use crate::grid::{BoundsError, GridBounds};
 use crate::location::{Column, Component as LocComponent, Location, Row};
-use crate::range::{ColumnRangeError, ComponentRange, RangeError, RowRangeError, LocationRange};
+use crate::range::{ColumnRangeError, ComponentRange, LocationRange, RangeError, RowRangeError};
 
 /// Base Reader trait for grids.
 ///
