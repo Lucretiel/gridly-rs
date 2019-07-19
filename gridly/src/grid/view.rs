@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use core::ops::Index;
 
 use crate::grid::{BoundsError, GridBounds};
-use crate::location::{Column, Component as LocComponent, Location, Row};
+use crate::location::{Column, Component as LocComponent, Location, Row, LocationLike};
 use crate::range::{ColumnRangeError, ComponentRange, LocationRange, RangeError, RowRangeError};
 
 /// Base Reader trait for grids.
@@ -51,7 +51,7 @@ impl<G: BaseGrid> BaseGrid for &mut G {
 pub trait Grid: BaseGrid {
     /// Get a reference to a cell in a grid. Returns an error if the location
     /// is out of bounds with the specific boundary violation.
-    fn get(&self, location: impl Into<Location>) -> Result<&Self::Item, BoundsError> {
+    fn get(&self, location: impl LocationLike) -> Result<&Self::Item, BoundsError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked(&loc) })
     }

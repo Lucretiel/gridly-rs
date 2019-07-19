@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign};
 
 use crate::direction::Direction;
-use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
+use crate::vector::{Columns, Component as VecComponent, Rows, Vector, VectorLike};
 
 // TODO: add additional implied traits?
 // TODO: docstrings
@@ -44,7 +44,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash {
     /// assert_eq!(Row::from_location(&loc), Row(2));
     /// assert_eq!(Column::from_location(&loc), Column(5));
     /// ```
-    fn from_location(location: &Location) -> Self;
+    fn from_location<L: LocationLike>(location: L) -> Self;
 
     /// Combine this component with its converse to create a [`Location`]. Note
     /// that `Row` and `Column` can simply be added together with `+` to create
@@ -139,7 +139,9 @@ macro_rules! make_component {
         $Distance:ident,
 
         // The field to use when getting from a location
-        $from_loc:ident,
+        $lower_name:ident,
+
+        $lower_converse:ident,
 
         // Rules for converting into a (row, column) pair.
         ($self:ident, $other:ident) =>
@@ -152,6 +154,7 @@ macro_rules! make_component {
         $test:ident
     ) => {
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[repr(transparent)]
         #[doc = "A `"]
         #[doc = $name]
         #[doc = "` component of a [`Location`]"]
@@ -210,13 +213,30 @@ macro_rules! make_component {
             }
         }
 
+        impl LocationLike for ($Name, $Converse) {
+            #[inline]
+            fn $lower_name(&self) -> $Name {
+                self.0
+            }
+
+            #[inline]
+            fn $lower_converse(&self) -> $Converse {
+                self.1
+            }
+
+            #[inline]
+            fn as_location(&self) -> Location {
+                self.0.combine(self.1)
+            }
+        }
+
         impl Component for $Name {
             type Converse = $Converse;
             type Distance = $Distance;
 
             #[inline]
-            fn from_location(loc: &Location) -> Self {
-                loc.$from_loc
+            fn from_location<L: LocationLike>(location: L) -> Self {
+                location.$lower_name()
             }
 
             #[inline]
@@ -302,8 +322,8 @@ macro_rules! make_component {
     }
 }
 
-make_component! {Row,    Column, Rows,    row,    (self, other) => (self, other), "row",    test_row}
-make_component! {Column, Row,    Columns, column, (self, other) => (other, self), "column", test_column}
+make_component! {Row,    Column, Rows,    row,    column, (self, other) => (self, other), "row",    test_row}
+make_component! {Column, Row,    Columns, column, row,    (self, other) => (other, self), "column", test_column}
 
 /// A location on a grid
 ///
@@ -335,11 +355,19 @@ impl Location {
             column: Column(0),
         }
     }
+}
 
-    /// Get either the row or column of a location. This method is useful in
+/// This trait covers structs that act like a [`Location`], such as tuples.
+/// See the [`Location`] documentation for more details.
+pub trait LocationLike: Sized {
+    fn row(&self) -> Row;
+    fn column(&self) -> Column;
+    fn as_location(&self) -> Location;
+
+        /// Get either the row or column of a location. This method is useful in
     /// code that is generic over the Row or Column.
     #[inline]
-    pub fn get_component<T: Component>(&self) -> T {
+    fn get_component<T: Component>(&self) -> T {
         T::from_location(self)
     }
 
@@ -351,8 +379,11 @@ impl Location {
     ///
     /// assert_eq!(L(3, 4).above(2), L(1, 4));
     /// ```
-    pub fn above(&self, distance: impl Into<Rows>) -> Location {
-        *self - distance.into()
+    fn above(&self, distance: impl Into<Rows>) -> Location {
+        Location {
+            row: self.row() - distance.into(),
+            column: self.column()
+        }
     }
 
     /// Return the location that is `distance` rows below this one
@@ -363,8 +394,11 @@ impl Location {
     ///
     /// assert_eq!(L(3, 4).below(2), L(5, 4));
     /// ```
-    pub fn below(&self, distance: impl Into<Rows>) -> Location {
-        *self + distance.into()
+    fn below(&self, distance: impl Into<Rows>) -> Location {
+        Location {
+            row: self.row() + distance.into(),
+            column: self.column(),
+        }
     }
 
     /// Return the location that is `distance` columns to the left of this one
@@ -375,8 +409,11 @@ impl Location {
     ///
     /// assert_eq!(L(3, 4).left(2), L(3, 2));
     /// ```
-    pub fn left(&self, distance: impl Into<Columns>) -> Location {
-        *self - distance.into()
+    fn left(&self, distance: impl Into<Columns>) -> Location {
+        Location {
+            row: self.row(),
+            column: self.column() - distance.into(),
+        }
     }
 
     /// Return the location that is `distance` columns to the right of this one
@@ -387,8 +424,18 @@ impl Location {
     ///
     /// assert_eq!(L(3, 4).right(2), L(3, 6));
     /// ```
-    pub fn right(&self, distance: impl Into<Columns>) -> Location {
-        *self + distance.into()
+    fn right(&self, distance: impl Into<Columns>) -> Location {
+        Location {
+            row: self.row(),
+            column: self.column() + distance.into(),
+        }
+    }
+
+    fn add(&self, distance: impl VectorLike) -> Location {
+        Location {
+            row: self.row() + distance.rows(),
+            column: self.column() + distance.columns(),
+        }
     }
 
     /// Return the location that is `distance` away in the given `direction`
@@ -402,8 +449,8 @@ impl Location {
     /// assert_eq!(Location::zero().relative(Left, 3), L(0, -3));
     /// assert_eq!(Location::zero().relative(Right, 1), L(0, 1));
     /// ```
-    pub fn relative(&self, direction: Direction, distance: isize) -> Location {
-        *self + (direction * distance)
+    fn relative(&self, direction: Direction, distance: isize) -> Location {
+        self.add(direction.sized_vec(distance))
     }
 
     /// Return the location that is 1 away in the given `direction`
@@ -418,8 +465,8 @@ impl Location {
     /// assert_eq!(base.step(Left), L(2, 3));
     /// assert_eq!(base.step(Right), L(2, 5));
     /// ```
-    pub fn step(&self, direction: Direction) -> Location {
-        *self + direction
+    fn step(&self, direction: Direction) -> Location {
+        self.add(direction.unit_vec())
     }
 
     /// Swap the row and colimn of this Location
@@ -433,15 +480,18 @@ impl Location {
     /// assert_eq!(L(5, 8).transpose(), L(8, 5));
     /// ```
     #[inline]
-    pub fn transpose(&self) -> Location {
-        Location::new(self.column.transpose(), self.row.transpose())
+    fn transpose(&self) -> Location {
+        Location {
+            row: self.column().transpose(),
+            column: self.row().transpose()
+        }
     }
 
     /// Generically get strictly ordered version of this `Location`. The `Major`
     /// is the ordering; for example, `order_by::<Row>` will create a row-ordered
     /// `Location`. See [`row_ordered`] or [`column_ordered`] for an example.
     #[inline]
-    pub fn order_by<Major: Component>(self) -> OrderedLocation<Major> {
+    fn order_by<Major: Component>(self) -> OrderedLocation<Self, Major> {
         self.into()
     }
 
@@ -464,7 +514,7 @@ impl Location {
     /// assert!(l2 < l3);
     /// ```
     #[inline]
-    pub fn row_ordered(self) -> RowOrderedLocation {
+    fn row_ordered(self) -> RowOrdered<Self> {
         self.order_by()
     }
 
@@ -489,35 +539,44 @@ impl Location {
     ///
     /// ```
     #[inline]
-    pub fn column_ordered(self) -> ColumnOrderedLocation {
+    fn column_ordered(self) -> ColumnOrdered<Self> {
         self.order_by()
     }
 }
 
-impl From<(Row, Column)> for Location {
-    fn from((row, column): (Row, Column)) -> Location {
-        Location::new(row, column)
+impl LocationLike for Location {
+    fn row(&self) -> Row {
+        self.row
+    }
+
+    fn column(&self) -> Column {
+        self.column
+    }
+
+    fn as_location(&self) -> Location {
+        *self
     }
 }
 
-impl From<(Column, Row)> for Location {
-    fn from((column, row): (Column, Row)) -> Location {
-        Location::new(row, column)
+impl<T: LocationLike> LocationLike for &T {
+    fn row(&self) -> Row {
+        T::row(self)
+    }
+
+    fn column(&self) -> Column {
+        T::column(self)
+    }
+
+    fn as_location(&self) -> Location {
+        T::as_location(self)
     }
 }
 
-impl From<(isize, isize)> for Location {
-    fn from((row, column): (isize, isize)) -> Location {
-        Location::new(row, column)
-    }
-}
-
-impl<T: Into<Vector>> Add<T> for Location {
+impl<T: VectorLike> Add<T> for Location {
     type Output = Location;
 
     fn add(self, rhs: T) -> Location {
-        let rhs = rhs.into();
-        Location::new(self.row + rhs.rows, self.column + rhs.columns)
+        Location::new(self.row + rhs.rows(), self.column + rhs.columns())
     }
 }
 
@@ -544,11 +603,10 @@ fn test_add() {
     assert_eq!(Location::zero() + Up, Location::new(-1, 0));
 }
 
-impl<T: Into<Vector>> AddAssign<T> for Location {
+impl<T: VectorLike> AddAssign<T> for Location {
     fn add_assign(&mut self, rhs: T) {
-        let rhs = rhs.into();
-        self.row += rhs.rows;
-        self.column += rhs.columns;
+        self.row += rhs.rows();
+        self.column += rhs.columns();
     }
 }
 
@@ -567,12 +625,11 @@ fn test_add_assign() {
     assert_eq!(loc, Location::new(2, 10));
 }
 
-impl<T: Into<Vector>> Sub<T> for Location {
+impl<T: VectorLike> Sub<T> for Location {
     type Output = Location;
 
     fn sub(self, rhs: T) -> Location {
-        let rhs = rhs.into();
-        Location::new(self.row - rhs.rows, self.column - rhs.columns)
+        Location::new(self.row - rhs.rows(), self.column - rhs.columns())
     }
 }
 
@@ -596,11 +653,10 @@ fn test_sub() {
     );
 }
 
-impl<T: Into<Vector>> SubAssign<T> for Location {
+impl<T: VectorLike> SubAssign<T> for Location {
     fn sub_assign(&mut self, rhs: T) {
-        let rhs = rhs.into();
-        self.row -= rhs.rows;
-        self.column -= rhs.columns;
+        self.row -= rhs.rows();
+        self.column -= rhs.columns();
     }
 }
 
@@ -619,6 +675,10 @@ fn test_sub_assign() {
     assert_eq!(loc, Location::new(-2, -10));
 }
 
+// Note: we'd like to be able to do Sub<impl LocationLike>, but there doesn't
+// appear to be a way to resolve the conflict between that and
+// Sub<impl VectorLike>. In particular, (isize, isize) implements both
+// traits, so it's not clear if it's even possible under the current type system
 impl Sub<Location> for Location {
     type Output = Vector;
 
@@ -635,10 +695,9 @@ fn test_sub_self() {
     assert_eq!(loc1 - loc2, Vector::new(3, 4));
 }
 
-impl<T: Into<Location> + Copy> PartialEq<T> for Location {
+impl<T: LocationLike> PartialEq<T> for Location {
     fn eq(&self, rhs: &T) -> bool {
-        let rhs = (*rhs).into();
-        self.row == rhs.row && self.column == rhs.column
+        self.row == rhs.row() && self.column == rhs.column()
     }
 }
 
@@ -660,10 +719,9 @@ impl<T: Into<Location> + Copy> PartialEq<T> for Location {
 ///
 /// For a strict ordering between all possible locations, see the [`OrderedLocation`]
 /// wrapper struct, which allows for row-major or column-major orderings.
-impl<T: Into<Location> + Copy> PartialOrd<T> for Location {
+impl<T: LocationLike> PartialOrd<T> for Location {
     fn partial_cmp(&self, rhs: &T) -> Option<Ordering> {
-        let rhs = (*rhs).into();
-        match (self.row.cmp(&rhs.row), self.column.cmp(&rhs.column)) {
+        match (self.row.cmp(&rhs.row()), self.column.cmp(&rhs.column())) {
             (Ordering::Greater, Ordering::Less) | (Ordering::Less, Ordering::Greater) => None,
             (o1, o2) => Some(o1.then(o2)),
         }
@@ -672,7 +730,7 @@ impl<T: Into<Location> + Copy> PartialOrd<T> for Location {
 
 #[cfg(test)]
 mod partial_ord_tests {
-    use crate::prelude::Location;
+    use crate::prelude::{Location, LocationLike};
     use crate::shorthand::{C, L, R};
     use core::cmp::Ordering;
 
@@ -713,21 +771,38 @@ mod partial_ord_tests {
     }
 }
 
+impl LocationLike for (isize, isize) {
+    #[inline]
+    fn row(&self) -> Row {
+        Row(self.0)
+    }
+
+    #[inline]
+    fn column(&self) -> Column {
+        Column(self.1)
+    }
+
+    #[inline]
+    fn as_location(&self) -> Location {
+        Location::new(self.0, self.1)
+    }
+}
+
 /// Rules for ordering a Location
 ///
 /// `OrderedLocation` is a wrapper struct around a `Location` that supplies an Ord and
 /// PartialOrd implementation. The `Major` type parameter indicates which
 /// ordering is used; for instance, `Ordering<Row>` provides row-major ordering,
 /// where Locations are sorted first by row, then by column.
-#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
-pub struct OrderedLocation<Major: Component> {
-    pub location: Location,
+#[derive(Debug, Clone, Copy, Default, Hash)]
+pub struct OrderedLocation<L: LocationLike, Major: Component> {
+    pub location: L,
     phantom: PhantomData<Major>,
 }
 
-impl<M: Component> OrderedLocation<M> {
+impl<L: LocationLike, M: Component> OrderedLocation<L, M> {
     #[inline]
-    pub fn new(location: Location) -> Self {
+    pub fn new(location: L) -> Self {
         Self {
             location,
             phantom: PhantomData,
@@ -735,51 +810,70 @@ impl<M: Component> OrderedLocation<M> {
     }
 }
 
-impl<M: Component> From<OrderedLocation<M>> for Location {
+impl<L: LocationLike, M: Component> From<L> for OrderedLocation<L, M> {
     #[inline]
-    fn from(ord: OrderedLocation<M>) -> Self {
-        ord.location
-    }
-}
-
-impl<M: Component> From<Location> for OrderedLocation<M> {
-    #[inline]
-    fn from(location: Location) -> Self {
+    fn from(location: L) -> Self {
         Self::new(location)
     }
 }
 
-impl<M: Component> AsRef<Location> for OrderedLocation<M> {
+impl<L: LocationLike, M: Component> AsRef<L> for OrderedLocation<L, M> {
     #[inline]
-    fn as_ref(&self) -> &Location {
+    fn as_ref(&self) -> &L {
         &self.location
     }
 }
 
-impl<M: Component> AsMut<Location> for OrderedLocation<M> {
+impl<L: LocationLike, M: Component> AsMut<L> for OrderedLocation<L, M> {
     #[inline]
-    fn as_mut(&mut self) -> &mut Location {
+    fn as_mut(&mut self) -> &mut L {
         &mut self.location
     }
 }
 
-impl<M: Component> Deref for OrderedLocation<M> {
-    type Target = Location;
+impl<L: LocationLike, M: Component> Deref for OrderedLocation<L, M> {
+    type Target = L;
 
     #[inline]
-    fn deref(&self) -> &Location {
+    fn deref(&self) -> &L {
         &self.location
     }
 }
 
-impl<M: Component> DerefMut for OrderedLocation<M> {
+impl<L: LocationLike, M: Component> DerefMut for OrderedLocation<L, M> {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Location {
+    fn deref_mut(&mut self) -> &mut L {
         &mut self.location
     }
 }
 
-impl<M: Component> PartialOrd for OrderedLocation<M> {
+impl<L: LocationLike, M: Component> LocationLike for OrderedLocation<L, M> {
+    #[inline]
+    fn row(&self) -> Row {
+        self.location.row()
+    }
+
+    #[inline]
+    fn column(&self) -> Column {
+        self.location.column()
+    }
+
+    #[inline]
+    fn as_location(&self) -> Location {
+        self.location.as_location()
+    }
+}
+
+impl<L: LocationLike, M: Component> PartialEq for OrderedLocation<L, M> {
+    #[inline]
+    fn eq(&self, rhs: &Self) -> bool {
+        self.as_location() == rhs.as_location()
+    }
+}
+
+impl<L: LocationLike, M: Component> Eq for OrderedLocation<L, M> {}
+
+impl<L: LocationLike, M: Component> PartialOrd for OrderedLocation<L, M> {
     #[inline]
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         Some(self.cmp(rhs))
@@ -806,7 +900,7 @@ impl<M: Component> PartialOrd for OrderedLocation<M> {
     }
 }
 
-impl<M: Component> Ord for OrderedLocation<M> {
+impl<L: LocationLike, M: Component> Ord for OrderedLocation<L, M> {
     fn cmp(&self, rhs: &Self) -> Ordering {
         M::from_location(self)
             .cmp(&M::from_location(rhs))
@@ -816,5 +910,7 @@ impl<M: Component> Ord for OrderedLocation<M> {
     }
 }
 
-pub type RowOrderedLocation = OrderedLocation<Row>;
-pub type ColumnOrderedLocation = OrderedLocation<Column>;
+pub type RowOrdered<L> = OrderedLocation<L, Row>;
+pub type ColumnOrdered<L> = OrderedLocation<L, Column>;
+pub type RowOrderedLocation = RowOrdered<Location>;
+pub type ColumnOrderedLocation = ColumnOrdered<Location>;

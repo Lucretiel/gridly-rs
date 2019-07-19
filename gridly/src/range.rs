@@ -3,17 +3,16 @@ use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use crate::location::{Column, Component, Location, Row};
+use crate::location::{Column, Component, Location, Row, LocationLike};
 
-// TODO: replace this with ops::Range<C> once Step is stabilized
+// TODO: replace this with ops::Range<C> once Step is stabilized. Mostly
+// we want this so that we can take advantage of `Range`'s very optimized
+// iterators.
 /// Range over `Row` or `Column` indices.
 ///
 /// This struct represents a range over `Row` or `Column` values. Much like
 /// the standard [Rust `Range`](::core::ops::Range), it is half open, bounded
 /// by `[start..end)`. It supports simple accessors and iteration.
-///
-/// This struct will go away when
-/// `std::ops::ComponentRange<T>` is stabilized for custom `T` types.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ComponentRange<C: Component> {
     range: Range<isize>,
@@ -26,8 +25,10 @@ impl<C: Component> ComponentRange<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::{ComponentRange, Row};
+    /// use gridly::range::ComponentRange;
+    /// use gridly::location::Row;
     /// use gridly::vector::Rows;
+    ///
     /// let mut range = ComponentRange::bounded(Row(0), Row(3));
     ///
     /// assert_eq!(range.size(), Rows(3));
@@ -52,8 +53,10 @@ impl<C: Component> ComponentRange<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::{ComponentRange, Column};
+    /// use gridly::range::ComponentRange;
+    /// use gridly::location::Column;
     /// use gridly::vector::Columns;
+    ///
     /// let mut range = ComponentRange::span(Column(1), Columns(2));
     ///
     /// assert_eq!(range.size(), Columns(2));
@@ -86,7 +89,8 @@ impl<C: Component> ComponentRange<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::{ComponentRange, Row};
+    /// use gridly::range::ComponentRange;
+    /// use gridly::location::Row;
     /// use gridly::vector::Rows;
     ///
     /// let range = ComponentRange::bounded(Row(-1), Row(3));
@@ -105,7 +109,8 @@ impl<C: Component> ComponentRange<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::{ComponentRange, Row, RangeError};
+    /// use gridly::range::{ComponentRange, RangeError};
+    /// use gridly::location::Row;
     /// use gridly::vector::Rows;
     ///
     /// let range = ComponentRange::span(Row(3), Rows(5));
@@ -131,8 +136,8 @@ impl<C: Component> ComponentRange<C> {
         }
     }
 
-    #[inline]
     /// Check that a `Row` or `Column` is in bounds for this range.
+    #[inline]
     pub fn in_bounds(&self, loc: impl Into<C>) -> bool {
         self.check(loc).is_ok()
     }
@@ -143,7 +148,8 @@ impl<C: Component> ComponentRange<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::location::{ComponentRange, Row, Column};
+    /// use gridly::range::ComponentRange;
+    /// use gridly::location::{Row, Column};
     /// use gridly::shorthand::L;
     ///
     /// let mut range = ComponentRange::bounded(Row(3), Row(6)).combine(Column(4));
@@ -194,7 +200,7 @@ impl<C: Component> DoubleEndedIterator for ComponentRange<C> {
 
 impl<C: Component> ExactSizeIterator for ComponentRange<C> {}
 impl<C: Component> FusedIterator for ComponentRange<C> {}
-// TODO: TrustedLen
+// TODO: TrustedLen when stable
 
 pub type RowRange = ComponentRange<Row>;
 pub type ColumnRange = ComponentRange<Column>;
@@ -211,7 +217,8 @@ pub type ColumnRange = ComponentRange<Column>;
 /// # Example:
 ///
 /// ```
-/// use gridly::location::{ComponentRange, Row, RangeError};
+/// use gridly::range::{ComponentRange, RangeError};
+/// use gridly::location::Row;
 /// let range = ComponentRange::bounded(Row(0), Row(10));
 ///
 /// assert_eq!(range.check(-5), Err(RangeError::TooLow(Row(0))));
@@ -233,8 +240,8 @@ pub enum RangeError<T: Component> {
 impl<T: Component> Display for RangeError<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            RangeError::TooLow(min) => write!(f, "Too low, must be >= {:?}", min),
-            RangeError::TooHigh(max) => write!(f, "Too high, must be < {:?}", max),
+            RangeError::TooLow(min) => write!(f, "too low, must be >= {:?}", min),
+            RangeError::TooHigh(max) => write!(f, "too high, must be < {:?}", max),
         }
     }
 }

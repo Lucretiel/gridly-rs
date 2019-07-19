@@ -1,6 +1,6 @@
 use crate::grid::bounds::BoundsError;
 use crate::grid::view::Grid;
-use crate::location::Location;
+use crate::location::{Location, LocationLike};
 
 pub trait BaseGridMut: Grid {
     // TODO: try_get_unchecked_mut
@@ -14,7 +14,7 @@ impl<G: BaseGridMut> BaseGridMut for &mut G {
 }
 
 pub trait GridMut: BaseGridMut {
-    fn get_mut(&mut self, location: impl Into<Location>) -> Result<&mut Self::Item, BoundsError> {
+    fn get_mut(&mut self, location: impl LocationLike) -> Result<&mut Self::Item, BoundsError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })
     }

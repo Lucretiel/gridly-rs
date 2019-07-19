@@ -1,6 +1,6 @@
 use crate::grid::bounds::BoundsError;
 use crate::grid::BaseGrid;
-use crate::location::Location;
+use crate::location::{Location, LocationLike};
 
 pub trait BaseGridSetter: BaseGrid {
     unsafe fn replace_unchecked(&mut self, location: &Location, value: Self::Item) -> Self::Item;
@@ -23,14 +23,14 @@ impl<G: BaseGridSetter> BaseGridSetter for &mut G {
 pub trait GridSetter: BaseGridSetter {
     fn replace(
         &mut self,
-        location: impl Into<Location>,
+        location: impl LocationLike,
         value: Self::Item,
     ) -> Result<Self::Item, BoundsError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.replace_unchecked(&loc, value) })
     }
 
-    fn set(&mut self, location: impl Into<Location>, value: Self::Item) -> Result<(), BoundsError> {
+    fn set(&mut self, location: impl LocationLike, value: Self::Item) -> Result<(), BoundsError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.set_unchecked(&loc, value) })
     }

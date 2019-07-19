@@ -1,10 +1,10 @@
 use core::fmt::{self, Display, Formatter};
 
-use crate::location::{Column, Component as LocComponent, Location, Row};
+use crate::location::{Column, Component as LocComponent, Location, Row, LocationLike};
 use crate::range::{
     ColumnRange, ColumnRangeError, ComponentRange, RangeError, RowRange, RowRangeError,
 };
-use crate::vector::{Columns, Component as VecComponent, Rows, Vector};
+use crate::vector::{Columns, Component as VecComponent, Rows, Vector, VectorLike};
 
 /// High-level trait implementing grid sizes and boundary checking.
 ///
@@ -155,16 +155,16 @@ pub trait GridBounds: BaseGridBounds {
     /// error if not. This function is intended to help write more expressive code;
     /// ie, `grid.check_location(loc).and_then(|loc| ...)`. Note that the
     /// safe grid interfaces are guarenteed to be bounds checked, where relevant.
-    fn check_location(&self, loc: impl Into<Location>) -> Result<Location, BoundsError> {
-        let loc = loc.into();
-        self.check_component(loc.row)?;
-        self.check_component(loc.column)?;
-        Ok(loc)
+    fn check_location(&self, location: impl LocationLike) -> Result<Location, BoundsError> {
+        let location = location.as_location();
+        self.check_component(location.row)?;
+        self.check_component(location.column)?;
+        Ok(location)
     }
 
     /// Returns true if a locaton is inside the bounds of this grid.
     #[inline]
-    fn location_in_bounds(&self, location: impl Into<Location>) -> bool {
+    fn location_in_bounds(&self, location: impl LocationLike) -> bool {
         self.check_location(location).is_ok()
     }
 }
