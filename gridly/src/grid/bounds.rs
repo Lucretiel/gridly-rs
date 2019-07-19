@@ -1,6 +1,6 @@
 use core::fmt::{self, Display, Formatter};
 
-use crate::location::{Column, Component as LocComponent, Location, Row, LocationLike};
+use crate::location::{Column, Component as LocComponent, Location, LocationLike, Row};
 use crate::range::{
     ColumnRange, ColumnRangeError, ComponentRange, RangeError, RowRange, RowRangeError,
 };
@@ -29,24 +29,24 @@ pub trait BaseGridBounds {
 impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a G {
     #[inline]
     fn dimensions(&self) -> Vector {
-        (**self).dimensions()
+        G::dimensions(self)
     }
 
     #[inline]
     fn root(&self) -> Location {
-        (**self).root()
+        G::root(self)
     }
 }
 
 impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a mut G {
     #[inline]
     fn dimensions(&self) -> Vector {
-        (**self).dimensions()
+        G::dimensions(self)
     }
 
     #[inline]
     fn root(&self) -> Location {
-        (**self).root()
+        G::root(self)
     }
 }
 

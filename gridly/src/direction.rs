@@ -2,7 +2,7 @@
 
 use core::ops::{Add, Mul, Neg, Sub};
 
-use crate::vector::{Vector, VectorLike, Rows, Columns};
+use crate::vector::{Columns, Rows, Vector, VectorLike};
 
 /// The four cardinal directions (up, down, left, right). `Direction`
 /// implements a number of simple helper methods. It also implements
@@ -268,7 +268,7 @@ impl VectorLike for Direction {
         match self {
             Up => Rows(-1),
             Down => Rows(1),
-            Left | Right => Rows(0)
+            Left | Right => Rows(0),
         }
     }
 
@@ -277,7 +277,7 @@ impl VectorLike for Direction {
         match self {
             Left => Columns(-1),
             Right => Columns(1),
-            Up | Down => Columns(0)
+            Up | Down => Columns(0),
         }
     }
 
@@ -292,6 +292,9 @@ fn test_vectorlike_direction() {
     // Test that the manual implementations of `rows`, `columns`, and `as_vector`
     // are all compatible.
     for direction in &[Up, Down, Left, Right] {
-        assert_eq!(direction.rows() + direction.columns(), direction.as_vector())
+        assert_eq!(
+            direction.rows() + direction.columns(),
+            direction.as_vector()
+        )
     }
 }

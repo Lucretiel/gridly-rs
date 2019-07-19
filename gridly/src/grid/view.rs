@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use core::ops::Index;
 
 use crate::grid::{BoundsError, GridBounds};
-use crate::location::{Column, Component as LocComponent, Location, Row, LocationLike};
+use crate::location::{Column, Component as LocComponent, Location, LocationLike, Row};
 use crate::range::{ColumnRangeError, ComponentRange, LocationRange, RangeError, RowRangeError};
 
 /// Base Reader trait for grids.

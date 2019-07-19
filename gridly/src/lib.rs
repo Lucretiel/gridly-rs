@@ -53,7 +53,9 @@ pub mod prelude {
         BaseGrid, BaseGridBounds, BaseGridMut, BaseGridSetter, Grid, GridBounds, GridMut,
         GridSetter,
     };
-    pub use crate::location::{Column, Component as LocationComponent, Location, Row, LocationLike};
+    pub use crate::location::{
+        Column, Component as LocationComponent, Location, LocationLike, Row,
+    };
     pub use crate::range::{ColumnRange, LocationRange, RowRange};
     pub use crate::vector::{Columns, Component as VectorComponent, Rows, Vector, VectorLike};
 }

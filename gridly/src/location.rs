@@ -364,7 +364,7 @@ pub trait LocationLike: Sized {
     fn column(&self) -> Column;
     fn as_location(&self) -> Location;
 
-        /// Get either the row or column of a location. This method is useful in
+    /// Get either the row or column of a location. This method is useful in
     /// code that is generic over the Row or Column.
     #[inline]
     fn get_component<T: Component>(&self) -> T {
@@ -382,7 +382,7 @@ pub trait LocationLike: Sized {
     fn above(&self, distance: impl Into<Rows>) -> Location {
         Location {
             row: self.row() - distance.into(),
-            column: self.column()
+            column: self.column(),
         }
     }
 
@@ -483,7 +483,7 @@ pub trait LocationLike: Sized {
     fn transpose(&self) -> Location {
         Location {
             row: self.column().transpose(),
-            column: self.row().transpose()
+            column: self.row().transpose(),
         }
     }
 

@@ -411,12 +411,12 @@ impl VectorLike for (isize, isize) {
         Rows(self.0)
     }
 
-#[inline]
+    #[inline]
     fn columns(&self) -> Columns {
         Columns(self.1)
     }
 
-#[inline]
+    #[inline]
     fn as_vector(&self) -> Vector {
         Vector::new(self.0, self.1)
     }
@@ -428,12 +428,12 @@ impl<T: VectorLike> VectorLike for &T {
         T::rows(self)
     }
 
-#[inline]
+    #[inline]
     fn columns(&self) -> Columns {
         T::columns(self)
     }
 
-#[inline]
+    #[inline]
     fn as_vector(&self) -> Vector {
         T::as_vector(self)
     }

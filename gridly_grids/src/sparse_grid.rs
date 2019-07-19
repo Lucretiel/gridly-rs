@@ -159,7 +159,9 @@ impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
         if value == self.default {
             self.storage.remove(location).unwrap_or(value)
         } else {
-            self.storage.insert(*location, value).unwrap_or_else(move || self.default.clone())
+            self.storage
+                .insert(*location, value)
+                .unwrap_or_else(move || self.default.clone())
         }
     }
 

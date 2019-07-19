@@ -3,7 +3,7 @@ use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use crate::location::{Column, Component, Location, Row, LocationLike};
+use crate::location::{Column, Component, Location, LocationLike, Row};
 
 // TODO: replace this with ops::Range<C> once Step is stabilized. Mostly
 // we want this so that we can take advantage of `Range`'s very optimized
@@ -161,6 +161,19 @@ impl<C: Component> ComponentRange<C> {
     /// ```
     pub fn combine(self, index: C::Converse) -> LocationRange<C::Converse> {
         LocationRange::new(index, self)
+    }
+
+    /// Combine this range with an orthogonal range to produce an iterator
+    /// over all locations covered by the two ranges.
+    ///
+    /// # Example
+    pub fn cross(
+        self,
+        cross_range: ComponentRange<C::Converse>,
+    ) -> impl Iterator<Item = Location> + FusedIterator + Clone {
+        // TODO: replace this with a custom iterator that provides
+        // DoubleEndedIterator, ExactSize, TrustedLen, etc.
+        self.flat_map(move |component| cross_range.clone().combine(component))
     }
 }
 

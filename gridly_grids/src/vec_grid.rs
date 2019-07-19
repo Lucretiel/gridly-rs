@@ -12,33 +12,14 @@ pub struct VecGrid<T> {
 }
 
 impl<T> VecGrid<T> {
-    /// Create a grid with an empty storage, preallocated. Ensures that the dimensions
-    /// are positive, and that the total volume of this grid fits in a usize.
-    ///
-    /// This function pre-allocates an empty vector of the correct size, determined
-    /// by `dimensions`. It then calls `make_storage` with the volume of the grid,
-    /// the dimensions of the grid, and the empty vector. `make_storage` is expected
-    /// to fill the vector with elements based on the particular constructor being
-    /// used.
-    ///
-    /// Returns the dimensions of the grid and the storage vector, or `None` if
-    /// the dimensions are invalid.
-    fn prepare(
-        dimensions: Vector,
-        make_storage: impl FnOnce(usize, &Vector, &mut Vec<T>),
-    ) -> Option<(Vector, Vec<T>)> {
-        // TODO: should this function be unsafe?
-
+    /// Given the prospective dimensions of a grid, return the volume of the
+    /// grid if the dimensions are valid, or None otherwise. Used as a helper
+    /// in the `VecGrid` constructors.
+    fn get_volume(dimensions: &Vector) -> Option<usize> {
         if dimensions.rows < 0 || dimensions.columns < 0 {
             None
         } else {
-            (dimensions.rows.0 as usize)
-                .checked_mul(dimensions.columns.0 as usize)
-                .map(move |volume| {
-                    let mut storage = Vec::with_capacity(volume);
-                    make_storage(volume, &dimensions, &mut storage);
-                    (dimensions, storage)
-                })
+            (dimensions.rows.0 as usize).checked_mul(dimensions.columns.0 as usize)
         }
     }
 
@@ -53,19 +34,18 @@ impl<T> VecGrid<T> {
     /// ```
     /// use gridly_grids::VecGrid;
     /// use gridly::prelude::*;
-    /// use gridly::shorthand::L;
     ///
-    /// let grid = VecGrid::new_fill_with(Rows(2) + Columns(2), || "Hello, World!".to_string()).unwrap();
-    /// assert_eq!(grid[L(1, 0)], "Hello, World!")
+    /// let grid = VecGrid::new_fill_with((Rows(2), Columns(2)), || "Hello, World!".to_string()).unwrap();
+    /// assert_eq!(grid[(1, 0)], "Hello, World!")
     /// ```
     ///
     /// See also [`new`] for filling a grid with a type's [default] value, and
     /// [`new_fill`] for filling a grid with a clone of a value.
-    pub fn new_fill_with(dimensions: impl Into<Vector>, gen: impl FnMut() -> T) -> Option<Self> {
-        Self::prepare(dimensions.into(), move |volume, _dim, storage| {
-            storage.extend(repeat_with(gen).take(volume));
-        })
-        .map(|(dimensions, storage)| Self {
+    pub fn new_fill_with(dimensions: impl VectorLike, gen: impl Fn() -> T) -> Option<Self> {
+        let dimensions = dimensions.as_vector();
+        let volume = Self::get_volume(&dimensions)?;
+        let storage = repeat_with(gen).take(volume).collect();
+        Some(VecGrid {
             dimensions,
             storage,
         })
@@ -78,21 +58,36 @@ impl<T> VecGrid<T> {
     /// not rely on it being called in row-major order.
     ///
     /// Returns the grid, or `None` if the `dimensions` were invalid.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let grid = VecGrid::new_with((Rows(2), Columns(2)), |loc| loc.row.0 + loc.column.0).unwrap();
+    /// assert_eq!(grid.get((0, 0)), Ok(&0));
+    /// assert_eq!(grid.get((0, 1)), Ok(&1));
+    /// assert_eq!(grid.get((1, 0)), Ok(&1));
+    /// assert_eq!(grid.get((1, 1)), Ok(&2));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
     pub fn new_with(
-        dimensions: impl Into<Vector>,
+        dimensions: impl VectorLike,
         mut gen: impl FnMut(&Location) -> T,
     ) -> Option<Self> {
-        Self::prepare(dimensions.into(), move |_volume, dimensions, storage| {
-            storage.extend(
-                RowRange::span(Row(0), dimensions.rows)
-                    .flat_map(move |row| {
-                        ColumnRange::span(Column(0), dimensions.columns)
-                            .map(move |column| row + column)
-                    })
-                    .map(move |location| gen(&location)),
-            );
-        })
-        .map(|(dimensions, storage)| Self {
+        let dimensions = dimensions.as_vector();
+        let mut storage = Vec::with_capacity(Self::get_volume(&dimensions)?);
+        let row_range = RowRange::span(Row(0), dimensions.rows);
+        let column_range = ColumnRange::span(Column(0), dimensions.columns);
+
+        storage.extend(
+            row_range
+                .cross(column_range)
+                .map(move |location| gen(&location)),
+        );
+
+        Some(VecGrid {
             dimensions,
             storage,
         })
@@ -104,19 +99,114 @@ impl<T> VecGrid<T> {
     unsafe fn index_for_location(&self, loc: &Location) -> usize {
         (loc.row.0 as usize * self.dimensions.columns.0 as usize) + loc.column.0 as usize
     }
+
+    /// Fill every cell in the grid with the values produced by repeatedly
+    /// calling `gen`. Called in an unspecified order.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let mut grid: VecGrid<isize> = VecGrid::new((Rows(2), Columns(2))).unwrap();
+    ///
+    /// grid.fill_with(|| 3);
+    /// assert_eq!(grid.get((0, 0)), Ok(&3));
+    /// assert_eq!(grid.get((0, 1)), Ok(&3));
+    /// assert_eq!(grid.get((1, 0)), Ok(&3));
+    /// assert_eq!(grid.get((1, 1)), Ok(&3));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
+    pub fn fill_with(&mut self, gen: impl Fn() -> T) {
+        // TODO: is it more efficient to do this inline? I'm thinking probably
+        // not; it's probably better to call all drops first, then fill
+        let volume = self.storage.len();
+        self.storage.clear();
+        self.storage.extend(repeat_with(gen).take(volume))
+    }
 }
 
 impl<T: Default> VecGrid<T> {
     /// Create a new `VecGrid` filled with the default value of `T` in each cell
-    pub fn new(dimensions: impl Into<Vector>) -> Option<Self> {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let grid: VecGrid<isize> = VecGrid::new((Rows(2), Columns(2))).unwrap();
+    /// assert_eq!(grid.get((0, 0)), Ok(&0));
+    /// assert_eq!(grid.get((0, 1)), Ok(&0));
+    /// assert_eq!(grid.get((1, 0)), Ok(&0));
+    /// assert_eq!(grid.get((1, 1)), Ok(&0));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
+    pub fn new(dimensions: impl VectorLike) -> Option<Self> {
         Self::new_fill_with(dimensions, Default::default)
+    }
+
+    /// Replace all the cells in the grid with the default value
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let mut grid = VecGrid::new_fill((Rows(2), Columns(2)), &5).unwrap();
+    /// grid.clear();
+    /// assert_eq!(grid.get((0, 0)), Ok(&0));
+    /// assert_eq!(grid.get((0, 1)), Ok(&0));
+    /// assert_eq!(grid.get((1, 0)), Ok(&0));
+    /// assert_eq!(grid.get((1, 1)), Ok(&0));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
+    pub fn clear(&mut self) {
+        self.fill_with(T::default);
     }
 }
 
 impl<T: Clone> VecGrid<T> {
     /// Create a new `VecGrid` filled with clones of `value`
-    pub fn new_fill(dimensions: impl Into<Vector>, value: &T) -> Option<Self> {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let grid = VecGrid::new_fill((Rows(2), Columns(2)), &"Hello").unwrap();
+    /// assert_eq!(grid.get((0, 0)), Ok(&"Hello"));
+    /// assert_eq!(grid.get((0, 1)), Ok(&"Hello"));
+    /// assert_eq!(grid.get((1, 0)), Ok(&"Hello"));
+    /// assert_eq!(grid.get((1, 1)), Ok(&"Hello"));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
+    pub fn new_fill(dimensions: impl VectorLike, value: &T) -> Option<Self> {
         Self::new_fill_with(dimensions, move || value.clone())
+    }
+
+    /// Fill every element in the grid with clones of `value`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let mut grid = VecGrid::new((Rows(2), Columns(2))).unwrap();
+    ///
+    /// grid.fill(&"Hello");
+    /// assert_eq!(grid.get((0, 0)), Ok(&"Hello"));
+    /// assert_eq!(grid.get((0, 1)), Ok(&"Hello"));
+    /// assert_eq!(grid.get((1, 0)), Ok(&"Hello"));
+    /// assert_eq!(grid.get((1, 1)), Ok(&"Hello"));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
+    pub fn fill(&mut self, value: &T) {
+        self.fill_with(move || value.clone())
     }
 }
 
@@ -135,12 +225,13 @@ impl<T> BaseGrid for VecGrid<T> {
     }
 }
 
-impl<T> Index<Location> for VecGrid<T> {
+impl<T, L: LocationLike> Index<L> for VecGrid<T> {
     type Output = T;
 
-    fn index(&self, location: Location) -> &T {
-        self.get(location)
-            .unwrap_or_else(|bounds_err| panic!("{:?} out of bounds: {}", location, bounds_err))
+    fn index(&self, location: L) -> &T {
+        self.get(&location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location.as_location(), bounds_err)
+        })
     }
 }
 
