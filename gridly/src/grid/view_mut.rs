@@ -22,6 +22,7 @@ pub trait GridMut: BaseGridMut {
 
 // TODO: mutable views, iterators
 // TODO: modify this trait to support extra behavior when references are dropped
-// (for instance, to allow clearing sparse grids)
+// (for instance, to allow clearing sparse grids). This will need to wait for
+// HKTs or GATs
 
 impl<G: BaseGridMut> GridMut for G {}

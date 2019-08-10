@@ -10,8 +10,8 @@ use gridly::prelude::*;
 /// not present in the hash table are considered to be the default value. These
 /// are colloquially called "unoccupied cells", though from the point of view
 /// of the gridly interface, they are indistinguishable from other cells. When
-/// reading from the grid, references to unoccupied cells will always be to the
-/// same stored default value.
+/// reading from the grid, references to unoccupied cells will (usually) be to
+/// the same stored default value.
 ///
 /// Whenever possible, cells that are set to the default value (as determined by
 /// `PartialEq`) will be removed from the hash table. Conversely, getting a

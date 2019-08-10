@@ -4,7 +4,7 @@ use crate::location::{Location, LocationLike};
 
 pub trait BaseGridSetter: BaseGrid {
     unsafe fn replace_unchecked(&mut self, location: &Location, value: Self::Item) -> Self::Item;
-    // TODO: try_set_unchecked
+    // TODO: try_set_unchecked. Probably this should wait until HKT.
     unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item) {
         self.replace_unchecked(location, value);
     }
