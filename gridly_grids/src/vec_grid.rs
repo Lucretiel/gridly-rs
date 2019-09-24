@@ -2,7 +2,7 @@ use std::iter::repeat_with;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
 
-#[cfg(feature="generations")]
+#[cfg(feature = "generations")]
 use generations::Clearable;
 
 use gridly::prelude::*;
@@ -265,7 +265,7 @@ impl<T> BaseGridMut for VecGrid<T> {
     }
 }
 
-#[cfg(feature="generations")]
+#[cfg(feature = "generations")]
 impl<T: Default> Clearable for VecGrid<T> {
     fn clear(&mut self) {
         VecGrid::clear(self)

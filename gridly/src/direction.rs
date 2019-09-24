@@ -299,8 +299,6 @@ fn test_vectorlike_direction() {
             direction.rows() + direction.columns(),
             direction.as_vector()
         );
-        assert_eq!(
-            direction.as_vector(), direction.unit_vec()
-        );
+        assert_eq!(direction.as_vector(), direction.unit_vec());
     }
 }

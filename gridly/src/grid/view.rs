@@ -171,11 +171,11 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = SingleView<'a, G, T>>
-                 + DoubleEndedIterator
-                 + FusedIterator
-                 + ExactSizeIterator
-                 + Debug
-                 + Clone {
+           + DoubleEndedIterator
+           + FusedIterator
+           + ExactSizeIterator
+           + Debug
+           + Clone {
         let grid = self.grid;
         self.range()
             .map(move |index| unsafe { SingleView::new_unchecked(grid, index) })
@@ -271,11 +271,11 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = &'a G::Item>
-                 + DoubleEndedIterator
-                 + FusedIterator
-                 + ExactSizeIterator
-                 + Debug
-                 + Clone {
+           + DoubleEndedIterator
+           + FusedIterator
+           + ExactSizeIterator
+           + Debug
+           + Clone {
         let grid = self.grid;
         self.range()
             .map(move |loc| unsafe { grid.get_unchecked(&loc) })
@@ -286,11 +286,11 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     pub fn iter_with_locations(
         &self,
     ) -> impl Iterator<Item = (Location, &'a G::Item)>
-                 + DoubleEndedIterator
-                 + FusedIterator
-                 + ExactSizeIterator
-                 + Debug
-                 + Clone {
+           + DoubleEndedIterator
+           + FusedIterator
+           + ExactSizeIterator
+           + Debug
+           + Clone {
         let grid = self.grid;
         self.range()
             .map(move |loc| (loc, unsafe { grid.get_unchecked(&loc) }))
@@ -302,11 +302,11 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     pub fn iter_with_indices(
         &self,
     ) -> impl Iterator<Item = (T::Converse, &'a G::Item)>
-                 + DoubleEndedIterator
-                 + FusedIterator
-                 + ExactSizeIterator
-                 + Debug
-                 + Clone {
+           + DoubleEndedIterator
+           + FusedIterator
+           + ExactSizeIterator
+           + Debug
+           + Clone {
         let grid = self.grid;
         let index = self.index;
         self.grid.range().map(move |cross: T::Converse| {

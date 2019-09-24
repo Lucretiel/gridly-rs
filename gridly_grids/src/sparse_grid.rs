@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::iter::{FusedIterator};
-use std::ops::{Index, IndexMut};
 use std::fmt::Debug;
+use std::iter::FusedIterator;
+use std::ops::{Index, IndexMut};
 
-#[cfg(feature="generations")]
+#[cfg(feature = "generations")]
 use generations::Clearable;
 
 use gridly::prelude::*;
@@ -149,15 +149,17 @@ impl<T: Clone + PartialEq, L: LocationLike> Index<L> for SparseGrid<T> {
     type Output = T;
 
     fn index(&self, location: L) -> &T {
-        self.get(&location)
-            .unwrap_or_else(|bounds_err| panic!("{:?} out of bounds: {}", location.as_location(), bounds_err))
+        self.get(&location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location.as_location(), bounds_err)
+        })
     }
 }
 
 impl<T: Clone + PartialEq, L: LocationLike> IndexMut<L> for SparseGrid<T> {
     fn index_mut(&mut self, location: L) -> &mut T {
-        self.get_mut(&location)
-            .unwrap_or_else(|bounds_err| panic!("{:?} out of bounds: {}", location.as_location(), bounds_err))
+        self.get_mut(&location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location.as_location(), bounds_err)
+        })
     }
 }
 
@@ -199,7 +201,7 @@ impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
     }
 }
 
-#[cfg(feature="generations")]
+#[cfg(feature = "generations")]
 impl<T: Clone + PartialEq> Clearable for SparseGrid<T> {
     fn clear(&mut self) {
         SparseGrid::clear(self)
