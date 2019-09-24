@@ -13,7 +13,9 @@ categories = [
 
 [dependencies]
 gridly = { path = "../gridly", version = "0.5.0" }
+generations = { version = "1.0.1", optional = true }
 
 [badges]
 travis-ci = { repository = "Lucretiel/gridly-rs" }
 maintenance = { status = "actively-developed" }
+

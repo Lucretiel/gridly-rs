@@ -12,21 +12,19 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector, VectorLike
 /// provides the bounds checking which is generic to all of the different
 /// kinds of grid.
 pub trait BaseGridBounds {
-    /// Get the dimensions of the grid, as a [`Vector`]. This value MUST be
-    /// const for any given grid.
+    /// Get the dimensions of the grid, as a [`Vector`].
     fn dimensions(&self) -> Vector;
 
     /// Return the root location (ie, the top left) of the grid. For most grids,
     /// this is (0, 0), but some grids may include negatively indexed locations,
-    /// or even offsets. This value MUST be const for any given grid. All valid
-    /// locations have `location >= root`.
+    /// or even offsets. All valid locations have `location >= root`.
     #[inline]
     fn root(&self) -> Location {
         Location::zero()
     }
 }
 
-impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a G {
+impl<G: BaseGridBounds + ?Sized> BaseGridBounds for &G {
     #[inline]
     fn dimensions(&self) -> Vector {
         G::dimensions(self)
@@ -38,7 +36,7 @@ impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a G {
     }
 }
 
-impl<'a, G: BaseGridBounds + ?Sized> BaseGridBounds for &'a mut G {
+impl<G: BaseGridBounds + ?Sized> BaseGridBounds for &mut G {
     #[inline]
     fn dimensions(&self) -> Vector {
         G::dimensions(self)
@@ -58,15 +56,13 @@ pub trait GridBounds: BaseGridBounds {
         self.root() + self.dimensions()
     }
 
-    /// Get the height of the grid in [`Rows`]. This value MUST be const for
-    /// any given grid.
+    /// Get the height of the grid in [`Rows`].
     #[inline]
     fn num_rows(&self) -> Rows {
         self.dimensions().rows
     }
 
-    /// Get the width of the grid, in [`Columns`]. This value MUST be const for
-    /// any given grid.
+    /// Get the width of the grid, in [`Columns`].
     #[inline]
     fn num_columns(&self) -> Columns {
         self.dimensions().columns
@@ -80,7 +76,7 @@ pub trait GridBounds: BaseGridBounds {
 
     /// Return the index of the topmost row of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
-    /// or even offsets. This value MUST be const for any given grid.
+    /// or even offsets.
     #[inline]
     fn root_row(&self) -> Row {
         self.root().row
@@ -88,13 +84,13 @@ pub trait GridBounds: BaseGridBounds {
 
     /// Return the index of the leftmost column of this grid. For most grids,
     /// this is 0, but some grids may include negatively indexed locations,
-    /// or even offsets. This value MUST be const for any given grid.
+    /// or even offsets.
     #[inline]
     fn root_column(&self) -> Column {
         self.root().column
     }
 
-    /// Return the index of the leftmost row or column of this grid.
+    /// Return the index of the leftmost column or topmost row of this grid.
     #[inline]
     fn root_component<C: LocComponent>(&self) -> C {
         self.root().get_component()
@@ -155,6 +151,7 @@ pub trait GridBounds: BaseGridBounds {
     /// error if not. This function is intended to help write more expressive code;
     /// ie, `grid.check_location(loc).and_then(|loc| ...)`. Note that the
     /// safe grid interfaces are guarenteed to be bounds checked, where relevant.
+    #[inline]
     fn check_location(&self, location: impl LocationLike) -> Result<Location, BoundsError> {
         let location = location.as_location();
         self.check_component(location.row)?;
@@ -185,18 +182,21 @@ pub enum BoundsError {
 }
 
 impl From<RowRangeError> for BoundsError {
+    #[inline]
     fn from(err: RowRangeError) -> Self {
         BoundsError::Row(err)
     }
 }
 
 impl From<ColumnRangeError> for BoundsError {
+    #[inline]
     fn from(err: ColumnRangeError) -> Self {
         BoundsError::Column(err)
     }
 }
 
 impl Display for BoundsError {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             BoundsError::Row(err) => write!(f, "Row out of bounds: {}", err),

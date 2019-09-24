@@ -1,6 +1,6 @@
 use std::iter::repeat_with;
 use std::mem::replace;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
 use gridly::prelude::*;
 
@@ -21,6 +21,13 @@ impl<T> VecGrid<T> {
         } else {
             (dimensions.rows.0 as usize).checked_mul(dimensions.columns.0 as usize)
         }
+    }
+
+    /// Given a bounds-checked location, return the index of the vector
+    /// associated with that location. Performs no bounds checking, either
+    /// on the input `location` or the output `usize`
+    unsafe fn index_for_location(&self, loc: &Location) -> usize {
+        (loc.row.0 as usize * self.dimensions.columns.0 as usize) + loc.column.0 as usize
     }
 
     /// Create a new `VecGrid`, filled with elements by repeatedly calling a
@@ -91,13 +98,6 @@ impl<T> VecGrid<T> {
             dimensions,
             storage,
         })
-    }
-
-    /// Given a bounds-checked location, return the index of the vector
-    /// associated with that location. Performs no bounds checking, either
-    /// on the input `location` or the output `usize`
-    unsafe fn index_for_location(&self, loc: &Location) -> usize {
-        (loc.row.0 as usize * self.dimensions.columns.0 as usize) + loc.column.0 as usize
     }
 
     /// Fill every cell in the grid with the values produced by repeatedly

@@ -362,7 +362,9 @@ impl Location {
 pub trait LocationLike: Sized {
     fn row(&self) -> Row;
     fn column(&self) -> Column;
-    fn as_location(&self) -> Location;
+    fn as_location(&self) -> Location {
+        Location::new(self.row(), self.column())
+    }
 
     /// Get either the row or column of a location. This method is useful in
     /// code that is generic over the Row or Column.
@@ -864,9 +866,9 @@ impl<L: LocationLike, M: Component> LocationLike for OrderedLocation<L, M> {
     }
 }
 
-impl<L: LocationLike, M: Component> PartialEq for OrderedLocation<L, M> {
+impl<L: LocationLike, M: Component, R: LocationLike> PartialEq<R> for OrderedLocation<L, M> {
     #[inline]
-    fn eq(&self, rhs: &Self) -> bool {
+    fn eq(&self, rhs: &R) -> bool {
         self.as_location() == rhs.as_location()
     }
 }

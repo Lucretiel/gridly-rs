@@ -8,12 +8,14 @@ pub trait BaseGridMut: Grid {
 }
 
 impl<G: BaseGridMut> BaseGridMut for &mut G {
+	#[inline]
     unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut Self::Item {
-        (**self).get_unchecked_mut(location)
+        G::get_unchecked_mut(self, location)
     }
 }
 
 pub trait GridMut: BaseGridMut {
+	#[inline]
     fn get_mut(&mut self, location: impl LocationLike) -> Result<&mut Self::Item, BoundsError> {
         self.check_location(location)
             .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })

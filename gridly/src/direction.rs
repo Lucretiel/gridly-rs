@@ -262,6 +262,9 @@ impl Mul<isize> for Direction {
 }
 
 /// A `Direction` acts like a unit vector in the given direction
+// TODO: I'm concerned about the performance implications of this impl,
+// since idiomatic use of VectorLike allows you to separately call .rows() and
+// .columns()
 impl VectorLike for Direction {
     #[inline]
     fn rows(&self) -> Rows {
@@ -295,6 +298,9 @@ fn test_vectorlike_direction() {
         assert_eq!(
             direction.rows() + direction.columns(),
             direction.as_vector()
-        )
+        );
+        assert_eq!(
+            direction.as_vector(), direction.unit_vec()
+        );
     }
 }
