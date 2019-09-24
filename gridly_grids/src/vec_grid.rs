@@ -235,6 +235,14 @@ impl<T, L: LocationLike> Index<L> for VecGrid<T> {
     }
 }
 
+impl<T, L: LocationLike> IndexMut<L> for VecGrid<T> {
+    fn index_mut(&mut self, location: L) -> &mut T {
+        self.get_mut(&location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location.as_location(), bounds_err)
+        })
+    }
+}
+
 impl<T> BaseGridSetter for VecGrid<T> {
     unsafe fn replace_unchecked(&mut self, location: &Location, value: T) -> T {
         let index = self.index_for_location(location);
