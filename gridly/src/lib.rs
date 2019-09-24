@@ -48,7 +48,7 @@ pub mod shorthand {
 /// The gridly prelude includes all traits and common structs. It does not include
 /// the single-letter [shorthand] constructors, though.
 pub mod prelude {
-    pub use crate::direction::{Direction, Down, Left, Right, Up};
+    pub use crate::direction::{Direction, Down, Left, Right, Up, EACH_DIRECTION};
     pub use crate::grid::{
         BaseGrid, BaseGridBounds, BaseGridMut, BaseGridSetter, Grid, GridBounds, GridMut,
         GridSetter,
@@ -57,5 +57,8 @@ pub mod prelude {
         Column, Component as LocationComponent, Location, LocationLike, Row,
     };
     pub use crate::range::{ColumnRange, LocationRange, RowRange};
-    pub use crate::vector::{Columns, Component as VectorComponent, Rows, Vector, VectorLike};
+    pub use crate::vector::{
+        Columns, Component as VectorComponent, Rows, Vector, VectorLike, DIAGONAL_ADJACENCIES,
+        ORTHOGONAL_ADJACENCIES, TOUCHING_ADJACENCIES,
+    };
 }

@@ -302,3 +302,8 @@ fn test_vectorlike_direction() {
         assert_eq!(direction.as_vector(), direction.unit_vec());
     }
 }
+
+/// This array contains each direction; it is intended to allow for easy
+/// iteration over adjacent locations. The order of the directions is
+/// left unspecified and should not be relied upon.
+pub static EACH_DIRECTION: [Direction; 4] = [Up, Right, Down, Left];

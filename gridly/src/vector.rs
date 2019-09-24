@@ -676,3 +676,28 @@ impl<T: VectorLike> PartialOrd<T> for Vector {
         }
     }
 }
+
+pub static ORTHOGONAL_ADJACENCIES: [Vector; 4] = [
+    Vector::new_const(-1, 0),
+    Vector::new_const(0, 1),
+    Vector::new_const(1, 0),
+    Vector::new_const(0, -1),
+];
+
+pub static DIAGONAL_ADJACENCIES: [Vector; 4] = [
+    Vector::new_const(-1, 1),
+    Vector::new_const(1, 1),
+    Vector::new_const(1, -1),
+    Vector::new_const(-1, -1),
+];
+
+pub static TOUCHING_ADJACENCIES: [Vector; 8] = [
+    Vector::new_const(-1, 0),
+    Vector::new_const(-1, 1),
+    Vector::new_const(0, 1),
+    Vector::new_const(1, 1),
+    Vector::new_const(1, 0),
+    Vector::new_const(1, -1),
+    Vector::new_const(0, -1),
+    Vector::new_const(-1, -1),
+];
