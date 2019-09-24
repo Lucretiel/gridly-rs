@@ -2,6 +2,9 @@ use std::iter::repeat_with;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
 
+#[cfg(feature="generations")]
+use generations::Clearable;
+
 use gridly::prelude::*;
 
 /// A grid that stores its elements in a `Vec<T>`, in row-major order.
@@ -259,5 +262,12 @@ impl<T> BaseGridMut for VecGrid<T> {
     unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
         let index = self.index_for_location(location);
         self.storage.get_unchecked_mut(index)
+    }
+}
+
+#[cfg(feature="generations")]
+impl<T: Default> Clearable for VecGrid<T> {
+    fn clear(&mut self) {
+        VecGrid::clear(self)
     }
 }

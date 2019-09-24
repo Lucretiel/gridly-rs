@@ -202,6 +202,6 @@ impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
 #[cfg(feature="generations")]
 impl<T: Clone + PartialEq> Clearable for SparseGrid<T> {
     fn clear(&mut self) {
-        self.clear();
+        SparseGrid::clear(self)
     }
 }
