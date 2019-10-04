@@ -113,10 +113,7 @@ macro_rules! make_component {
         $Point:ident,
         $lower_name:ident,
         $lower_converse:ident,
-        ($NegativeDir:ident, $PositiveDir:ident),
-        ($self:ident, $other:ident) =>
-        ($first:ident, $second:ident),
-        $name: expr,
+        $name:literal,
         $test:ident
     ) => {
         #[doc="A "]
@@ -397,8 +394,8 @@ macro_rules! make_component {
     }
 }
 
-make_component! {Rows, Columns, Row, rows, columns, (Up, Down), (self, other) => (self, other), "rows", test_rows}
-make_component! {Columns, Rows, Column, columns, rows, (Left, Right), (self, other) => (other, self), "columns", test_columns}
+make_component! {Rows, Columns, Row, rows, columns, "rows", test_rows}
+make_component! {Columns, Rows, Column, columns, rows, "columns", test_columns}
 
 // TODO: constify all of these methods
 

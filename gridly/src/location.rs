@@ -48,6 +48,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Defa
     /// assert_eq!(Row::from_location(&loc), Row(2));
     /// assert_eq!(Column::from_location(&loc), Column(5));
     /// ```
+    #[must_use]
     fn from_location<L: LocationLike>(location: L) -> Self;
 
     /// Combine this component with its converse to create a [`Location`]. Note
@@ -63,6 +64,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Defa
     /// assert_eq!(loc, Location::new(2, 5));
     /// assert_eq!(loc, Row(2) + Column(5));
     /// ```
+    #[must_use]
     fn combine(self, other: Self::Converse) -> Location;
 
     /// Return the lowercase name of this component type– "row" or "column".
@@ -74,6 +76,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Defa
     /// assert_eq!(Row::name(), "row");
     /// assert_eq!(Column::name(), "column");
     /// ```
+    #[must_use]
     fn name() -> &'static str;
 
     /// Get the integer value of this component
@@ -83,6 +86,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Defa
     ///
     /// assert_eq!(Row(5).value(), 5);
     /// ```
+    #[must_use]
     fn value(self) -> isize;
 
     /// Add a distance to this component. This method is provided because we can't
@@ -94,6 +98,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Defa
     ///
     /// assert_eq!(Row(4).add_distance(Rows(5)), Row(9));
     /// ```
+    #[must_use]
     fn add_distance(self, amount: impl Into<Self::Distance>) -> Self;
 
     /// Find the distance between two components, using this component as the origin
@@ -116,6 +121,7 @@ pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Defa
     ///
     /// assert_eq!(Row(8).distance_from(Row(3)), Rows(5));
     /// ```
+    #[must_use]
     fn distance_from(self, origin: Self) -> Self::Distance;
 
     /// Convert a Row into a Column or vice versa
@@ -179,11 +185,7 @@ macro_rules! make_component {
         // The converse field when getting from a location
         $lower_converse:ident,
 
-        // Rules for converting into a (row, column) pair.
-        ($self:ident, $other:ident) =>
-        ($first:ident, $second:ident),
-
-        // The string name of the component
+        // The string name of the field, to use in docstrings
         $name:literal,
 
         // The name of the module in which to place unit tests
@@ -286,37 +288,34 @@ macro_rules! make_component {
             type Distance = $Distance;
 
             #[inline]
-            #[must_use]
             fn from_location<L: LocationLike>(location: L) -> Self {
                 location.$lower_name()
             }
 
             #[inline]
-            #[must_use]
-            fn combine($self, $other: Self::Converse) -> Location {
-                Location::new($first, $second)
+            fn combine(self, other: $Converse) -> Location {
+                Location {
+                    $lower_name: self,
+                    $lower_converse: other,
+                }
             }
 
             #[inline(always)]
-            #[must_use]
             fn name() -> &'static str {
-                $name
+                stringify!($lower_name)
             }
 
             #[inline]
-            #[must_use]
-            fn add_distance(self, distance: impl Into<Self::Distance>) -> Self {
+            fn add_distance(self, distance: impl Into<$Distance>) -> Self {
                 self + distance.into()
             }
 
             #[inline]
-            #[must_use]
-            fn distance_from(self, origin: Self) -> Self::Distance {
+            fn distance_from(self, origin: Self) -> $Distance {
                 self - origin
             }
 
             #[inline]
-            #[must_use]
             fn value(self) -> isize {
                 self.0
             }
@@ -389,8 +388,8 @@ macro_rules! make_component {
     }
 }
 
-make_component! {Row,    Column, Rows,    row,    column, (self, other) => (self, other), "row",    test_row}
-make_component! {Column, Row,    Columns, column, row,    (self, other) => (other, self), "column", test_column}
+make_component! {Row, Column, Rows, row, column, "row", test_row}
+make_component! {Column, Row, Columns, column, row, "column", test_column}
 
 /// A location on a grid
 ///
