@@ -9,19 +9,11 @@ use crate::range::{ColumnRangeError, ComponentRange, LocationRange, RangeError, 
 
 /// Base Reader trait for grids.
 ///
-/// This trait provides the grid's cell type, `Item`, and a single, unsafe
-/// reader function, `get_unchecked`, which provides a reference to a cell at a
-/// location.
-///
-/// The [`Grid`] trait, which is automatically implemented for all [`BaseGrid`],
-/// provides a safe and comprehensive interface to a `BaseGrid`, which includes
-/// bounds checking based on [`GridBounds`] and many different view and iterator
-/// methods.
-///
-/// Trait for viewing the values in a grid
-///
-/// `Grid` provides a comprehensive interface for reading values in a grid. This
-/// interface includes bounds-checked getters, iterators, and views.
+/// This trait provides the grid's cell type, `Item`, and an unsafe getter
+/// method for fetching a cell at a bounds-checked location. It uses this
+/// unsafe getter, plus [`GridBounds`] based bounds-checking, to provide a
+/// comprehensive and safe interface for reading and iterating over elements
+/// in a grid.
 pub trait Grid: GridBounds {
     /// The item type stored in the grid
     type Item;
@@ -68,17 +60,13 @@ pub trait Grid: GridBounds {
         SingleView::new_unchecked(self, index)
     }
 
-    /// Get a view of a single row in a grid, without bounds checking that row's index. Because
-    /// this method is unsafe, we require the type safety of a Row (rather than Into<Row>) as
-    /// an extra sanity check.
+    /// Get a view of a single row in a grid, without bounds checking that row's index.
     #[inline]
     unsafe fn row_unchecked(&self, row: Row) -> RowView<Self> {
         self.single_view_unchecked(row)
     }
 
     /// Get a view of a single column in a grid, without bounds checking that column's index.
-    /// Because this method is unsafe, we require the type safety of a Column (rather than
-    /// Into<Column>) as an extra sanity check.
     #[inline]
     unsafe fn column_unchecked(&self, column: Column) -> ColumnView<Self> {
         self.single_view_unchecked(column)
@@ -127,10 +115,10 @@ impl<G: Grid> Grid for &mut G {
 /// A view of the Rows or Columns in a grid.
 ///
 /// This struct provides a row- or column-major view of a grid. For instance,
-/// a `View<MyGrid, Row>` is a View of all of the rows in MyGrid.
+/// a `View<MyGrid, Row>` is a View of all of the rows in `MyGrid`.
 ///
 /// A view can be indexed over its major ordering. For example, a `View<G, Row>`
-/// can be indexed by [`Row`]
+/// can be indexed by [`Row`].
 #[derive(Debug)]
 pub struct View<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
@@ -336,10 +324,9 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
            + Debug
            + Clone {
         let grid = self.grid;
-        let index = self.index;
-        self.grid.range().map(move |cross: T::Converse| {
-            (cross, unsafe { grid.get_unchecked(&cross.combine(index)) })
-        })
+
+        self.range()
+            .map(move |loc| (loc.get_component(), unsafe { grid.get_unchecked(&loc) }))
     }
 }
 
