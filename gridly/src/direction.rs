@@ -1,13 +1,14 @@
-//! A simple enumeration for the 4 cardinal directions.
+//! A simple enumeration for the 4 cardinal direction.
 
 use core::ops::{Add, Mul, Neg, Sub};
 
 use crate::vector::{Columns, Rows, Vector, VectorLike};
 
-/// The four cardinal directions (up, down, left, right). `Direction`
+/// The four cardinal directions (up, down, left, right). [`Direction`]
 /// implements a number of simple helper methods. It also implements
 /// [`VectorLike`], which allows it to be used in contexts where a [`Vector`]
-/// can be used as a unit vector in the given direction.
+/// can be used as a unit vector in the given direction (for example, with
+/// Vector arithmetic).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     /// The negative row direction
@@ -38,6 +39,8 @@ impl Direction {
     /// assert_eq!(Left.sized_vec(1), Vector::new(0, -1));
     /// assert_eq!(Right.sized_vec(5), Vector::new(0, 5));
     /// ```
+    #[must_use]
+    #[inline]
     pub fn sized_vec(self, length: isize) -> Vector {
         match self {
             Up => Vector::upward(length),
@@ -59,6 +62,7 @@ impl Direction {
     /// assert_eq!(Left.unit_vec(), Vector::new(0, -1));
     /// assert_eq!(Right.unit_vec(), Vector::new(0, 1));
     /// ```
+    #[must_use]
     #[inline]
     pub fn unit_vec(self) -> Vector {
         self.sized_vec(1)
@@ -76,6 +80,7 @@ impl Direction {
     /// assert!(!Left.is_vertical());
     /// assert!(!Right.is_vertical());
     /// ```
+    #[must_use]
     #[inline]
     pub fn is_vertical(self) -> bool {
         match self {
@@ -96,12 +101,13 @@ impl Direction {
     /// assert!(Left.is_horizontal());
     /// assert!(Right.is_horizontal());
     /// ```
+    #[must_use]
     #[inline]
     pub fn is_horizontal(self) -> bool {
         !self.is_vertical()
     }
 
-    /// Reverse this direction (`Up` -> `Down`, etc)
+    /// Reverse this direction (`Up` → `Down`, etc)
     ///
     /// ```
     /// use gridly::direction::*;
@@ -111,6 +117,7 @@ impl Direction {
     /// assert_eq!(Left.reverse(), Right);
     /// assert_eq!(Right.reverse(), Left);
     /// ```
+    #[must_use]
     #[inline]
     pub fn reverse(self) -> Direction {
         match self {
@@ -133,6 +140,7 @@ impl Direction {
     /// assert_eq!(Left.clockwise(), Up);
     /// assert_eq!(Right.clockwise(), Down);
     /// ```
+    #[must_use]
     #[inline]
     pub fn clockwise(self) -> Direction {
         match self {
@@ -155,6 +163,7 @@ impl Direction {
     /// assert_eq!(Left.anticlockwise(), Down);
     /// assert_eq!(Right.anticlockwise(), Up);
     /// ```
+    #[must_use]
     #[inline]
     pub fn anticlockwise(self) -> Direction {
         match self {
@@ -167,7 +176,9 @@ impl Direction {
 }
 
 /// Adding a `Vector` to a `Direction` is equivelent to adding it to a
-/// unit vector in the given direction
+/// unit vector in the given direction. Note that, because [`Direction`]
+/// itself implements `VectorLike`, this means you can add together a sequence
+/// of directions to get a Vector.
 ///
 /// # Example:
 ///
@@ -181,10 +192,13 @@ impl Direction {
 /// assert_eq!(Down + base, Vector::new(4, 4));
 /// assert_eq!(Right + base, Vector::new(3, 5));
 /// assert_eq!(Left + base, Vector::new(3, 3));
+///
+/// assert_eq!(Up + Right + Up + Up, Vector::new(-3, 1));
 /// ```
 impl<T: VectorLike> Add<T> for Direction {
     type Output = Vector;
 
+    #[must_use]
     #[inline]
     fn add(self, rhs: T) -> Vector {
         // TODO: is it more efficient to do a match here?
@@ -201,16 +215,17 @@ impl<T: VectorLike> Add<T> for Direction {
 /// use gridly::vector::Vector;
 /// use gridly::direction::*;
 ///
-/// let base = Vector::new(0, 0);
+/// let base = Vector::new(3, 3);
 ///
-/// assert_eq!(Up - base, Vector::new(-1, 0));
-/// assert_eq!(Down - base, Vector::new(1, 0));
-/// assert_eq!(Right - base, Vector::new(0, 1));
-/// assert_eq!(Left - base, Vector::new(0, -1));
+/// assert_eq!(Up - base, Vector::new(-4, -3));
+/// assert_eq!(Down - base, Vector::new(-2, -3));
+/// assert_eq!(Right - base, Vector::new(-3, -2));
+/// assert_eq!(Left - base, Vector::new(-3, -4));
 /// ```
 impl<T: VectorLike> Sub<T> for Direction {
     type Output = Vector;
 
+    #[must_use]
     #[inline]
     fn sub(self, rhs: T) -> Vector {
         self.unit_vec() - rhs.as_vector()
@@ -232,6 +247,7 @@ impl<T: VectorLike> Sub<T> for Direction {
 impl Neg for Direction {
     type Output = Direction;
 
+    #[must_use]
     #[inline]
     fn neg(self) -> Direction {
         self.reverse()
@@ -255,17 +271,32 @@ impl Neg for Direction {
 impl Mul<isize> for Direction {
     type Output = Vector;
 
+    #[must_use]
     #[inline]
     fn mul(self, amount: isize) -> Vector {
         self.sized_vec(amount)
     }
 }
 
-/// A `Direction` acts like a unit vector in the given direction
+/// A `Direction` acts like a unit vector in the given direction. This allows
+/// it to be used in things like Vector arithmetic.
+///
+/// # Example:
+///
+/// ```
+/// use gridly::prelude::*;
+///
+/// assert_eq!(Vector::new(1, 1) + Up, Vector::new(0, 1));
+/// assert_eq!(Location::new(3, 4) - Left, Location::new(3, 5));
+/// ```
 // TODO: I'm concerned about the performance implications of this impl,
 // since idiomatic use of VectorLike allows you to separately call .rows() and
-// .columns()
+// .columns(). Hopefully the optimizer can notice that and optimize to a single
+// check. For now we hope that inlining will allow the compiler to elide
+// unnecessary checks, and prefer to use as_vector for internal methods, where
+// relevant.
 impl VectorLike for Direction {
+    #[must_use]
     #[inline]
     fn rows(&self) -> Rows {
         match self {
@@ -275,6 +306,7 @@ impl VectorLike for Direction {
         }
     }
 
+    #[must_use]
     #[inline]
     fn columns(&self) -> Columns {
         match self {
@@ -284,26 +316,125 @@ impl VectorLike for Direction {
         }
     }
 
+    #[must_use]
     #[inline]
     fn as_vector(&self) -> Vector {
         self.unit_vec()
     }
+
+    #[must_use]
+    #[inline(always)]
+    fn manhattan_length(&self) -> isize {
+        1
+    }
+
+    #[must_use]
+    #[inline(always)]
+    fn checked_manhattan_length(&self) -> Option<isize> {
+        Some(1)
+    }
+
+    #[must_use]
+    #[inline]
+    fn clockwise(&self) -> Vector {
+        Direction::clockwise(*self).unit_vec()
+    }
+
+    #[must_use]
+    #[inline]
+    fn anticlockwise(&self) -> Vector {
+        Direction::anticlockwise(*self).unit_vec()
+    }
+
+    #[must_use]
+    #[inline]
+    fn reverse(&self) -> Vector {
+        Direction::reverse(*self).unit_vec()
+    }
+
+    #[must_use]
+    #[inline]
+    fn transpose(&self) -> Vector {
+        match self {
+            Down => Right,
+            Right => Down,
+            Up => Left,
+            Left => Up,
+        }
+        .unit_vec()
+    }
+
+    #[must_use]
+    #[inline]
+    fn direction(&self) -> Option<Direction> {
+        Some(*self)
+    }
 }
 
-#[test]
-fn test_vectorlike_direction() {
-    // Test that the manual implementations of `rows`, `columns`, and `as_vector`
-    // are all compatible.
-    for direction in &[Up, Down, Left, Right] {
-        assert_eq!(
-            direction.rows() + direction.columns(),
-            direction.as_vector()
-        );
-        assert_eq!(direction.as_vector(), direction.unit_vec());
+#[cfg(test)]
+mod test_vectorlike {
+    use crate::direction::EACH_DIRECTION;
+    use crate::vector::VectorLike;
+
+    /// Test that the manual implementations of `rows`, `columns`, and
+    /// `as_vector` are all compatible.
+    #[test]
+    fn test_row_column_vector_compatible() {
+        for direction in &EACH_DIRECTION {
+            assert_eq!(
+                direction.rows() + direction.columns(),
+                direction.as_vector()
+            );
+            assert_eq!(direction.as_vector(), direction.unit_vec());
+        }
+    }
+
+    mod custom_impls {
+        use crate::direction::EACH_DIRECTION;
+        use crate::vector::VectorLike;
+
+        /// Direction has a custom implementation of all the VectorLike
+        /// methods. These tests confirm that the custom implementations match
+        /// the vector versions.
+        macro_rules! test_vectorlike_method {
+            ($method:ident) => {
+                #[test]
+                fn $method() {
+                    for direction in &EACH_DIRECTION {
+                        let vector = direction.unit_vec();
+
+                        assert_eq!(vector.$method(), VectorLike::$method(direction),);
+                    }
+                }
+            };
+        }
+
+        test_vectorlike_method! {manhattan_length}
+        test_vectorlike_method! {checked_manhattan_length}
+        test_vectorlike_method! {clockwise}
+        test_vectorlike_method! {anticlockwise}
+        test_vectorlike_method! {reverse}
+        test_vectorlike_method! {transpose}
+        test_vectorlike_method! {direction}
     }
 }
 
 /// This array contains each direction; it is intended to allow for easy
 /// iteration over adjacent locations. The order of the directions is
 /// left unspecified and should not be relied upon.
+///
+/// # Example
+///
+/// ```
+/// use gridly::prelude::*;
+/// use gridly::shorthand::*;
+/// let root = L(1, 2);
+/// let adjacent: Vec<Location> = EACH_DIRECTION.iter().map(|v| root + v).collect();
+///
+/// assert!(adjacent.contains(&L(0, 2)));
+/// assert!(adjacent.contains(&L(2, 2)));
+/// assert!(adjacent.contains(&L(1, 3)));
+/// assert!(adjacent.contains(&L(1, 1)));
+/// assert_eq!(adjacent.len(), 4);
+/// ```
 pub static EACH_DIRECTION: [Direction; 4] = [Up, Right, Down, Left];

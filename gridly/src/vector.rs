@@ -1,11 +1,33 @@
+//! 2-dimensional [`Vector`] type used in [`Location`] arithmetic, with supporting types
+//! and traits. A [`Vector`] is a measurement of distance between two [`Location`]s.
+//!
+//! [`Location`]: crate::location::Location
+//! [`Vector`]: crate::vector::Vector
+
 use core::cmp::Ordering;
 use core::fmt::Debug;
+use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::direction::*;
 use crate::location::{Column, Component as LocComponent, Row};
 
 /// A [`Rows`] or [`Columns`] component of a [`Vector`]
+///
+/// This trait comprises a component of a [`Vector`], which may be either
+/// [`Rows`] or [`Columns`]. It represents a distance in a single direction,
+/// either vertical ([`Rows`]) or horizontal ([`Columns`]).
+///
+/// In practice, most code will call methods directly on [`Rows`] or [`Columns`]
+/// values. However, a lot of gridly functionality is agnostic towards
+/// rows and columns (for instance, a view over a row in a grid is functionally
+/// the same as a view over a column), so the `Component` trait allows such
+/// functionality to be written generically.
+///
+/// The key methods for `Component` that allow it to work in generic contexts
+/// are `from_vector`, which gets a component from a `Vector`, and `combine`,
+/// which combines a [`Rows`] or [`Columns`] with its converse (a `Columns`
+/// or a `Row`s) to create a new `Vector`.
 pub trait Component:
     Sized
     + From<isize>
@@ -22,6 +44,7 @@ pub trait Component:
     + PartialEq<isize>
     + PartialOrd<isize>
     + VectorLike
+    + Sum
 {
     /// The converse component ([`Rows`] to [`Columns`] or vice versa)
     type Converse: Component<Converse = Self>;
@@ -55,10 +78,30 @@ pub trait Component:
     /// assert_eq!(columns.combine(rows), Vector::new(2, 10));
     fn combine(self, converse: Self::Converse) -> Vector;
 
-    /// Get the integer value of this component
+    /// Get the integer value of this component.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let columns = Columns(10);
+    /// let rows = Rows(2);
+    ///
+    /// assert_eq!(columns.value(), 10);
+    /// assert_eq!(rows.value(), 2);
+    /// ```
     fn value(self) -> isize;
 
-    // Convert a Row into a Column or vice versa
+    // Convert a Row into a Column or vice versa.
+    //
+    // # Example:
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// assert_eq!(Rows(10).transpose(), Columns(10));
+    /// ```
     fn transpose(self) -> Self::Converse;
 }
 
@@ -70,11 +113,15 @@ macro_rules! make_component {
         $Point:ident,
         $lower_name:ident,
         $lower_converse:ident,
+        ($NegativeDir:ident, $PositiveDir:ident),
         ($self:ident, $other:ident) =>
         ($first:ident, $second:ident),
         $name: expr,
         $test:ident
     ) => {
+        #[doc="A "]
+        #[doc=$name]
+        #[doc=" component of a [`Vector`]"]
         #[derive(
             Debug,
             Clone,
@@ -89,11 +136,11 @@ macro_rules! make_component {
         #[repr(transparent)]
         pub struct $Name(pub isize);
 
-        /// Adding a component to its converse (ie, [`Rows`] to [`Columns`])
-        /// creates a Vector
+        /// Adding a [`Rows`] to a [`Columns`] produces a [`Vector`]
         impl Add<$Converse> for $Name {
             type Output = Vector;
 
+            #[inline]
             fn add(self, rhs: $Converse) -> Vector {
                 self.combine(rhs)
             }
@@ -102,12 +149,14 @@ macro_rules! make_component {
         impl<T: Into<$Name>> Add<T> for $Name {
             type Output = Self;
 
+            #[inline]
             fn add(self, rhs: T) -> Self {
                 $Name(self.0 + rhs.into().0)
             }
         }
 
         impl<T: Into<$Name>> AddAssign<T> for $Name {
+            #[inline]
             fn add_assign(&mut self, rhs: T) {
                 self.0 += rhs.into().0
             }
@@ -116,12 +165,14 @@ macro_rules! make_component {
         impl<T: Into<$Name>> Sub<T> for $Name {
             type Output = Self;
 
+            #[inline]
             fn sub(self, rhs: T) -> Self {
                 $Name(self.0 - rhs.into().0)
             }
         }
 
         impl<T: Into<$Name>> SubAssign<T> for $Name {
+            #[inline]
             fn sub_assign(&mut self, rhs: T) {
                 self.0 -= rhs.into().0
             }
@@ -132,6 +183,7 @@ macro_rules! make_component {
         {
             type Output = Self;
 
+            #[inline]
             fn mul(self, factor: T) -> Self {
                 $Name(self.0 * factor)
             }
@@ -140,6 +192,7 @@ macro_rules! make_component {
         impl<T> MulAssign<T> for $Name
             where isize: MulAssign<T>
         {
+            #[inline]
             fn mul_assign(&mut self, factor: T) {
                 self.0 *= factor
             }
@@ -148,12 +201,14 @@ macro_rules! make_component {
         impl Neg for $Name {
             type Output = Self;
 
+            #[inline]
             fn neg(self) -> Self {
                 $Name(-self.0)
             }
         }
 
         impl From<isize> for $Name {
+            #[inline]
             fn from(value: isize) -> Self {
                 $Name(value)
             }
@@ -182,6 +237,8 @@ macro_rules! make_component {
             fn gt(&self, rhs: &isize) -> bool { self.0 > *rhs }
         }
 
+        /// A [`Rows`] or a [`Columns`] value can be treated as a [`Vector`]
+        /// where the converse component is 0.
         impl VectorLike for $Name {
             #[inline]
             fn $lower_name(&self) -> $Name {
@@ -197,6 +254,9 @@ macro_rules! make_component {
             fn as_vector(&self) -> Vector {
                 self.combine($Converse(0))
             }
+
+            // TODO: custom implementations for VectorLike methods?
+            // We assume that
         }
 
         impl VectorLike for ($Name, $Converse) {
@@ -214,6 +274,24 @@ macro_rules! make_component {
             fn as_vector(&self) -> Vector {
                 self.0.combine(self.1)
             }
+
+            // TODO: custom method implementations where they can be more
+            // efficient. For now we assume that the compiler is smart enough
+            // to inline (self.combine(0))
+        }
+
+        impl Sum for $Name {
+            fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+                // TODO: is it better to do iter.map(value.0).sum()?
+                iter.fold($Name(0), Add::add)
+            }
+        }
+
+        impl<'a> Sum<&'a $Name> for $Name {
+            fn sum<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
+                iter.fold($Name(0), |lhs, rhs| lhs + *rhs)
+            }
+
         }
 
         impl Component for $Name {
@@ -226,8 +304,11 @@ macro_rules! make_component {
             }
 
             #[inline]
-            fn combine($self, $other: $Converse) -> Vector {
-                Vector::new($first, $second)
+            fn combine(self, other: $Converse) -> Vector {
+                Vector {
+                    $lower_name: self,
+                    $lower_converse: other,
+                }
             }
 
             #[inline]
@@ -243,24 +324,94 @@ macro_rules! make_component {
 
         #[cfg(test)]
         mod $test {
+            use $crate::vector::{$Name, $Converse, Component, Vector};
 
+            #[test]
+            fn test_combine_converse() {
+                let value = $Name(5);
+                let converse = $Converse(8);
+
+                assert_eq!(value.combine(converse), Vector {
+                    $lower_name: value,
+                    $lower_converse: converse,
+                });
+            }
+
+            #[test]
+            fn test_add_converse() {
+                let value = $Name(5);
+                let converse = $Converse(8);
+
+                assert_eq!(value + converse, Vector {
+                    $lower_name: value,
+                    $lower_converse: converse,
+                });
+            }
+
+            #[test]
+            fn test_add() {
+                let value = $Name(5);
+
+                assert_eq!(value + $Name(5), $Name(10));
+                assert_eq!(value + 5, $Name(10));
+            }
+
+            #[test]
+            fn test_add_assign() {
+                let mut value = $Name(5);
+
+                value += $Name(5);
+                assert_eq!(value, $Name(10));
+                value += 5;
+                assert_eq!(value, $Name(15));
+            }
+
+            #[test]
+            fn test_sub() {
+                let value = $Name(5);
+
+                assert_eq!(value - $Name(5), $Name(0));
+                assert_eq!(value - 5, $Name(0));
+            }
+
+            #[test]
+            fn test_sub_assign() {
+                let mut value = $Name(5);
+
+                value -= $Name(5);
+                assert_eq!(value, $Name(0));
+                value -= 5;
+                assert_eq!(value, $Name(-5));
+            }
+
+            #[test]
+            fn test_mul() {
+                assert_eq!($Name(5) * 4, $Name(20));
+            }
+
+            #[test]
+            fn test_neg() {
+                assert_eq!(-$Name(5), $Name(-5));
+            }
         }
     }
 }
 
-make_component! {Rows, Columns, Row, rows, columns, (self, other) => (self, other), "rows", test_rows}
-make_component! {Columns, Rows, Column, columns, rows, (self, other) => (other, self), "columns", test_columns}
+make_component! {Rows, Columns, Row, rows, columns, (Up, Down), (self, other) => (self, other), "rows", test_rows}
+make_component! {Columns, Rows, Column, columns, rows, (Left, Right), (self, other) => (other, self), "columns", test_columns}
 
 // TODO: constify all of these methods
 
 /// A measurement of distance between two [`Location`]s
 ///
-/// A `Vector` is the measurement of distance between two [`Location`]s. It
-/// supports arithmetic operations with itself, as well as anything which can
-/// be converted into a Vector. Currently, [`Rows`], [`Columns`], and [`Direction`]
-/// all have this property, as well as a tuple of (Into<Rows>, Into<Columns>).
+/// A `Vector` is the measurement of distance between two
+/// [`Location`]s. It supports arithmetic operations with itself, as well
+/// as anything which can be converted into a Vector. Currently, [`Rows`],
+/// [`Columns`], and [`Direction`] all have this property, as well as
+/// `(Rows, Columns)`, `(Columns, Rows)`, and `(isize, isize)`
+/// (which is treated as `(Rows, Columns)`).
 ///
-/// [Location]: crate::location::Location
+/// [`Location`]: crate::location::Location
 #[derive(Debug, Clone, Copy, Default, Hash, Eq)]
 pub struct Vector {
     pub rows: Rows,
@@ -292,44 +443,75 @@ impl Vector {
     }
 
     /// Create an upward pointing vector of the given size
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Vector::upward(5), Vector::new(-5, 0))
+    /// ```
     pub const fn upward(size: isize) -> Vector {
         Vector::new_const(-size, 0)
     }
 
     /// Create a downward pointing vector of the given size
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Vector::downward(5), Vector::new(5, 0))
+    /// ```
     pub const fn downward(size: isize) -> Vector {
         Vector::new_const(size, 0)
     }
 
     /// Create a leftward pointing vector of the given size
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Vector::leftward(5), Vector::new(0, -5))
+    /// ```
     pub const fn leftward(size: isize) -> Vector {
         Vector::new_const(0, -size)
     }
 
     /// Create a rightward pointing vector of the given size
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Vector::rightward(5), Vector::new(0, 5))
+    /// ```
     pub const fn rightward(size: isize) -> Vector {
         Vector::new_const(0, size)
     }
 
     /// Create a vector of the given size in the given direction
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Vector::in_direction(Up, 10), Vector::new(-10, 0));
+    /// ```
     pub fn in_direction(direction: Direction, length: isize) -> Vector {
         direction.sized_vec(length)
     }
 }
 
+///
 pub trait VectorLike: Sized {
     fn rows(&self) -> Rows;
     fn columns(&self) -> Columns;
     fn as_vector(&self) -> Vector;
 
-    /// Return the Manhattan length of the vector
-    ///
-    /// The Manhattan length of a vector is the sum of the absolute values of
-    /// its components.
+    /// Return the manhattan length of the vector. The manhattan length
+    /// of a vector is the sum of the absolute values of its components.
     fn manhattan_length(&self) -> isize {
         self.rows().0.abs() + self.columns().0.abs()
     }
 
+    /// Return the manhatten length of the vector, or `None` if there are
+    /// any overflows.
     fn checked_manhattan_length(&self) -> Option<isize> {
         let rows = self.rows().0.checked_abs()?;
         let columns = self.columns().0.checked_abs()?;
@@ -444,7 +626,11 @@ impl<T: VectorLike> Add<T> for Vector {
 
     #[inline]
     fn add(self, rhs: T) -> Vector {
-        Vector::new(self.rows + rhs.rows(), self.columns + rhs.columns())
+        let rhs = rhs.as_vector();
+        Vector {
+            rows: self.rows + rhs.rows,
+            columns: self.columns + rhs.columns,
+        }
     }
 }
 
@@ -474,8 +660,10 @@ fn test_add() {
 impl<T: VectorLike> AddAssign<T> for Vector {
     #[inline]
     fn add_assign(&mut self, rhs: T) {
-        self.rows += rhs.rows();
-        self.columns += rhs.columns();
+        let rhs = rhs.as_vector();
+
+        self.rows += rhs.rows;
+        self.columns += rhs.columns;
     }
 }
 
@@ -516,7 +704,11 @@ impl<T: VectorLike> Sub<T> for Vector {
 
     #[inline]
     fn sub(self, rhs: T) -> Vector {
-        Vector::new(self.rows - rhs.rows(), self.columns - rhs.columns())
+        let rhs = rhs.as_vector();
+        Vector {
+            rows: self.rows - rhs.rows,
+            columns: self.columns - rhs.columns,
+        }
     }
 }
 
@@ -546,8 +738,10 @@ fn test_subtract() {
 impl<T: VectorLike> SubAssign<T> for Vector {
     #[inline]
     fn sub_assign(&mut self, rhs: T) {
-        self.rows -= rhs.rows();
-        self.columns -= rhs.columns();
+        let rhs = rhs.as_vector();
+
+        self.rows -= rhs.rows;
+        self.columns -= rhs.columns;
     }
 }
 
@@ -592,7 +786,10 @@ where
 
     #[inline]
     fn mul(self, factor: T) -> Vector {
-        Vector::new(self.rows * factor, self.columns * factor)
+        Vector {
+            rows: self.rows * factor,
+            columns: self.columns * factor,
+        }
     }
 }
 
@@ -640,7 +837,8 @@ fn test_neg() {
 
 impl<T: VectorLike> PartialEq<T> for Vector {
     fn eq(&self, rhs: &T) -> bool {
-        self.rows == rhs.rows() && self.columns == rhs.columns()
+        let rhs = rhs.as_vector();
+        self.rows == rhs.rows && self.columns == rhs.columns
     }
 }
 
@@ -670,20 +868,65 @@ fn test_eq() {
 
 impl<T: VectorLike> PartialOrd<T> for Vector {
     fn partial_cmp(&self, rhs: &T) -> Option<Ordering> {
-        match (self.rows.cmp(&rhs.rows()), self.columns.cmp(&rhs.columns())) {
+        let rhs = rhs.as_vector();
+        match (self.rows.cmp(&rhs.rows), self.columns.cmp(&rhs.columns)) {
             (Ordering::Greater, Ordering::Less) | (Ordering::Less, Ordering::Greater) => None,
             (o1, o2) => Some(o1.then(o2)),
         }
     }
 }
 
+impl<T: VectorLike> Sum<T> for Vector {
+    fn sum<I: Iterator<Item = T>>(iter: I) -> Self {
+        iter.fold(Vector::zero(), Add::add)
+    }
+}
+
+/// This array contains unit vectors associated with the 4 orthogonally
+/// adjacent directions. It is intended to allow for easy iteration over
+/// orthogonally adjacent locations. The order of the vectors is unspecified
+/// and should not be relied upon.
+///
+/// # Example
+///
+/// ```
+/// use gridly::prelude::*;
+/// use gridly::shorthand::*;
+/// let root = L(1, 2);
+/// let adjacent: Vec<Location> = ORTHOGONAL_ADJACENCIES.iter().map(|v| root + v).collect();
+///
+/// assert!(adjacent.contains(&L(0, 2)));
+/// assert!(adjacent.contains(&L(2, 2)));
+/// assert!(adjacent.contains(&L(1, 3)));
+/// assert!(adjacent.contains(&L(1, 1)));
+/// assert_eq!(adjacent.len(), 4);
+/// ```
 pub static ORTHOGONAL_ADJACENCIES: [Vector; 4] = [
-    Vector::new_const(-1, 0),
-    Vector::new_const(0, 1),
-    Vector::new_const(1, 0),
-    Vector::new_const(0, -1),
+    Vector::upward(1),
+    Vector::rightward(1),
+    Vector::downward(1),
+    Vector::leftward(1),
 ];
 
+/// This array contains unit vectors associated with the 4 diagonal directions.
+/// It is intended to allow for easy iteration over diagonally adjacent
+/// locations. The order of the vectors is unspecified and should not be
+/// relied upon.
+///
+/// # Example
+///
+/// ```
+/// use gridly::prelude::*;
+/// use gridly::shorthand::*;
+/// let root = L(1, 2);
+/// let corners: Vec<Location> = DIAGONAL_ADJACENCIES.iter().map(|v| root + v).collect();
+///
+/// assert!(corners.contains(&L(0, 1)));
+/// assert!(corners.contains(&L(0, 3)));
+/// assert!(corners.contains(&L(2, 3)));
+/// assert!(corners.contains(&L(2, 1)));
+/// assert_eq!(corners.len(), 4);
+/// ```
 pub static DIAGONAL_ADJACENCIES: [Vector; 4] = [
     Vector::new_const(-1, 1),
     Vector::new_const(1, 1),
@@ -691,6 +934,34 @@ pub static DIAGONAL_ADJACENCIES: [Vector; 4] = [
     Vector::new_const(-1, -1),
 ];
 
+/// This array contains unit vectors associated with the 8 adjacent directions.
+/// It is intended to allow for easy iteration over all locations that touch
+/// a center location (for instance, when scanning adjacencies in an
+/// implementation of [Conway's Game of Life]). The order of the vectors
+/// is unspecified and should not be relied upon.
+///
+/// # Example
+///
+/// ```
+/// use gridly::prelude::*;
+/// use gridly::shorthand::*;
+/// let root = L(1, 2);
+/// let touching: Vec<Location> = TOUCHING_ADJACENCIES.iter().map(|v| root + v).collect();
+///
+/// assert!(touching.contains(&L(0, 1)));
+/// assert!(touching.contains(&L(0, 3)));
+/// assert!(touching.contains(&L(2, 3)));
+/// assert!(touching.contains(&L(2, 1)));
+/// assert!(touching.contains(&L(0, 2)));
+/// assert!(touching.contains(&L(2, 2)));
+/// assert!(touching.contains(&L(1, 3)));
+/// assert!(touching.contains(&L(1, 1)));
+/// assert_eq!(touching.len(), 8);
+/// ```
+///
+/// <sup>Death to the false Emperor</sup>
+///
+/// [Conway's Game of Life]: https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life
 pub static TOUCHING_ADJACENCIES: [Vector; 8] = [
     Vector::new_const(-1, 0),
     Vector::new_const(-1, 1),
@@ -701,3 +972,6 @@ pub static TOUCHING_ADJACENCIES: [Vector; 8] = [
     Vector::new_const(0, -1),
     Vector::new_const(-1, -1),
 ];
+
+// TODO: in principle all 4 of these arrays could overlap each other. Any
+// way to do that without a slice?

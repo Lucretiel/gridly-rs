@@ -5,10 +5,13 @@ pub mod range;
 pub mod vector;
 
 /// The shorthand module includes quick single-character shorthand constructors
-/// for the common gridly types ([`Row`], [`Column`], [`Vector`], and [`Location`]).
+/// for the common gridly types ([`Row`][location::Row],
+/// [`Column`][location::Column], [`Vector`][vector::Vector], and
+/// [`Location`][location::Location]).
 ///
-/// These are not includes in the prelude because we don't want a bulk import to
-/// unexpectedly add a bunch of single-character names to the namespace.
+/// These are not included in the [`prelude`][prelude] because we don't want a
+/// bulk import to unexpectedly add a bunch of single-character names to the
+/// namespace.
 pub mod shorthand {
     use crate::location::{Column, Location, Row};
     use crate::vector::{Columns, Rows, Vector};
@@ -16,28 +19,28 @@ pub mod shorthand {
     // TODO: make these shorthands smart enough to be either `Row` or `Rows` using
     // generics. Perhaps they can implement both kinds of component?
 
-    /// Shorthand to create a [`Row`]
+    /// Shorthand to create a [`Row`].
     #[allow(non_snake_case)]
     #[inline(always)]
     pub fn R(row: impl Into<Row>) -> Row {
         row.into()
     }
 
-    /// Shorthand to create a [`Column`]
+    /// Shorthand to create a [`Column`].
     #[allow(non_snake_case)]
     #[inline(always)]
     pub fn C(column: impl Into<Column>) -> Column {
         column.into()
     }
 
-    /// Shorthand to create a [`Vector`]
+    /// Shorthand to create a [`Vector`].
     #[allow(non_snake_case)]
     #[inline(always)]
     pub fn V(rows: impl Into<Rows>, columns: impl Into<Columns>) -> Vector {
         Vector::new(rows, columns)
     }
 
-    /// Shorthand to create a [`Location`]
+    /// Shorthand to create a [`Location`].
     #[allow(non_snake_case)]
     #[inline(always)]
     pub fn L(row: impl Into<Row>, column: impl Into<Column>) -> Location {
@@ -45,18 +48,27 @@ pub mod shorthand {
     }
 }
 
-/// The gridly prelude includes all traits and common structs. It does not include
-/// the single-letter [shorthand] constructors, though.
+/// The gridly prelude includes all traits and common structs.
+///
+/// Note that the prelude does not include the single-character [shorthand]
+/// functions, so as not to pollute your namespace with single-character
+/// identifiers on a bulk import.
 pub mod prelude {
+    #[doc(inline)]
     pub use crate::direction::{Direction, Down, Left, Right, Up, EACH_DIRECTION};
-    pub use crate::grid::{
-        BaseGrid, BaseGridBounds, BaseGridMut, BaseGridSetter, Grid, GridBounds, GridMut,
-        GridSetter,
-    };
+
+    #[doc(inline)]
+    pub use crate::grid::{BoundsError, Grid, GridBounds, GridMut, GridSetter};
+
+    #[doc(inline)]
     pub use crate::location::{
         Column, Component as LocationComponent, Location, LocationLike, Row,
     };
-    pub use crate::range::{ColumnRange, LocationRange, RowRange};
+
+    #[doc(inline)]
+    pub use crate::range::{ColumnRange, ColumnRangeError, LocationRange, RowRange, RowRangeError};
+
+    #[doc(inline)]
     pub use crate::vector::{
         Columns, Component as VectorComponent, Rows, Vector, VectorLike, DIAGONAL_ADJACENCIES,
         ORTHOGONAL_ADJACENCIES, TOUCHING_ADJACENCIES,

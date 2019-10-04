@@ -87,14 +87,15 @@ impl<T> VecGrid<T> {
         mut gen: impl FnMut(&Location) -> T,
     ) -> Option<Self> {
         let dimensions = dimensions.as_vector();
+        let columns = dimensions.columns;
+
         let mut storage = Vec::with_capacity(Self::get_volume(&dimensions)?);
-        let row_range = RowRange::span(Row(0), dimensions.rows);
-        let column_range = ColumnRange::span(Column(0), dimensions.columns);
 
         storage.extend(
-            row_range
-                .cross(column_range)
-                .map(move |location| gen(&location)),
+            Row(0)
+                .span(dimensions.rows)
+                .flat_map(move |row| Column(0).span(columns).cross(row))
+                .map(move |loc| gen(&loc)),
         );
 
         Some(VecGrid {
@@ -213,13 +214,40 @@ impl<T: Clone> VecGrid<T> {
     }
 }
 
-impl<T> BaseGridBounds for VecGrid<T> {
-    fn dimensions(&self) -> Vector {
-        self.dimensions
+impl<T: Copy> VecGrid<T> {
+    /// Create a new `VecGrid` filled with copies of `value`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let grid = VecGrid::new_fill_copied((Rows(2), Columns(2)), 10).unwrap();
+    /// assert_eq!(grid.get((0, 0)), Ok(&10));
+    /// assert_eq!(grid.get((0, 1)), Ok(&10));
+    /// assert_eq!(grid.get((1, 0)), Ok(&10));
+    /// assert_eq!(grid.get((1, 1)), Ok(&10));
+    /// assert!(grid.get((1, 2)).is_err());
+    /// ```
+    pub fn new_fill_copied(dimensions: impl VectorLike, value: T) -> Option<Self> {
+        Self::new_fill_with(dimensions, move || value)
     }
 }
 
-impl<T> BaseGrid for VecGrid<T> {
+impl<T> GridBounds for VecGrid<T> {
+    #[inline]
+    fn dimensions(&self) -> Vector {
+        self.dimensions
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Location {
+        Location::zero()
+    }
+}
+
+impl<T> Grid for VecGrid<T> {
     type Item = T;
 
     unsafe fn get_unchecked(&self, location: &Location) -> &T {
@@ -246,7 +274,7 @@ impl<T, L: LocationLike> IndexMut<L> for VecGrid<T> {
     }
 }
 
-impl<T> BaseGridSetter for VecGrid<T> {
+impl<T> GridSetter for VecGrid<T> {
     unsafe fn replace_unchecked(&mut self, location: &Location, value: T) -> T {
         let index = self.index_for_location(location);
         replace(self.storage.get_unchecked_mut(index), value)
@@ -258,7 +286,7 @@ impl<T> BaseGridSetter for VecGrid<T> {
     }
 }
 
-impl<T> BaseGridMut for VecGrid<T> {
+impl<T> GridMut for VecGrid<T> {
     unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
         let index = self.index_for_location(location);
         self.storage.get_unchecked_mut(index)

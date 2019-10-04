@@ -1,6 +1,6 @@
 [package]
 name = "gridly"
-version = "0.5.2"
+version = "0.6.0"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -19,3 +19,4 @@ maintenance = { status = "actively-developed" }
 
 [dev-dependencies]
 gridly_grids = { path = "../gridly_grids", version = "0.2.0" }
+cool_asserts = "1.0.0"

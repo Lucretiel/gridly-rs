@@ -42,16 +42,20 @@ pub struct SparseGrid<T: Clone + PartialEq> {
 impl<T: Clone + PartialEq> SparseGrid<T> {
     /// Create a new `SparseGrid` with the given dimensions, rooted at `(0, 0)`,
     /// filled with the given default value
-    pub fn new_default(dimensions: Vector, default: T) -> Self {
+    pub fn new_default(dimensions: impl VectorLike, default: T) -> Self {
         Self::new_rooted_default(Location::zero(), dimensions, default)
     }
 
     /// Create a new `SparseGrid` with the given dimensions and root location,
     /// filled with the default value
-    pub fn new_rooted_default(root: Location, dimensions: Vector, default: T) -> Self {
+    pub fn new_rooted_default(
+        root: impl LocationLike,
+        dimensions: impl VectorLike,
+        default: T,
+    ) -> Self {
         Self {
-            root,
-            dimensions,
+            root: root.as_location(),
+            dimensions: dimensions.as_vector(),
             default,
             storage: HashMap::new(),
         }
@@ -114,18 +118,18 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
 impl<T: Clone + PartialEq + Default> SparseGrid<T> {
     /// Create a new `SparseGrid` with the given dimensions and root location,
     /// filled with the default value for `T`
-    pub fn new_rooted(root: Location, dimensions: Vector) -> Self {
+    pub fn new_rooted(root: impl LocationLike, dimensions: impl VectorLike) -> Self {
         Self::new_rooted_default(root, dimensions, T::default())
     }
 
     /// Create a new `SparseGrid` with the given dimensions, rooted at `(0, 0)`,
     /// filled with the default value for `T`
-    pub fn new(dimensions: Vector) -> Self {
+    pub fn new(dimensions: impl VectorLike) -> Self {
         Self::new_default(dimensions, T::default())
     }
 }
 
-impl<T: Clone + PartialEq> BaseGridBounds for SparseGrid<T> {
+impl<T: Clone + PartialEq> GridBounds for SparseGrid<T> {
     fn dimensions(&self) -> Vector {
         self.dimensions
     }
@@ -135,7 +139,7 @@ impl<T: Clone + PartialEq> BaseGridBounds for SparseGrid<T> {
     }
 }
 
-impl<T: Clone + PartialEq> BaseGrid for SparseGrid<T> {
+impl<T: Clone + PartialEq> Grid for SparseGrid<T> {
     type Item = T;
 
     /// Get a reference to a value in the grid. If the location is not present
@@ -163,7 +167,7 @@ impl<T: Clone + PartialEq, L: LocationLike> IndexMut<L> for SparseGrid<T> {
     }
 }
 
-impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
+impl<T: Clone + PartialEq> GridSetter for SparseGrid<T> {
     /// Set the value of a cell in the grid. If this value compares equal to
     /// the default, remove it from the underlying hash table. Return the
     /// previous value (which may be a clone of the default value if the cell
@@ -189,7 +193,7 @@ impl<T: Clone + PartialEq> BaseGridSetter for SparseGrid<T> {
     }
 }
 
-impl<T: Clone + PartialEq> BaseGridMut for SparseGrid<T> {
+impl<T: Clone + PartialEq> GridMut for SparseGrid<T> {
     /// Get a mutable reference to a cell in the grid. If this cell is unoccupied,
     /// the default is cloned and inserted into the underlying hash table at this
     /// location.

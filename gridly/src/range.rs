@@ -1,3 +1,10 @@
+//! Range types, similar to [`core::ops::Range`], for easy iteration over
+//! [`Row`], [`Column`], and [`Location`] values.
+//!
+//! [`Row`]: crate::location::Row
+//! [`Column`]: crate::location::Column
+//! [`Location`]: crate::location::Location
+
 use core::fmt::{self, Display, Formatter};
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
@@ -8,11 +15,12 @@ use crate::location::{Column, Component, Location, LocationLike, Row};
 // TODO: replace this with ops::Range<C> once Step is stabilized. Mostly
 // we want this so that we can take advantage of `Range`'s very optimized
 // iterators.
-/// Range over `Row` or `Column` indices.
+/// A range over [`Row`] or [`Column`] values.
 ///
-/// This struct represents a range over `Row` or `Column` values. Much like
-/// the standard [Rust `Range`](::core::ops::Range), it is half open, bounded
-/// by `[start..end)`. It supports simple accessors and iteration.
+/// This struct represents a range over [`Row`] or [`Column`] values. Much like
+/// the standard rust [`Range`](::core::ops::Range), it is half open, bounded
+/// by `[start..end)`. It supports simple accessors and iteration. It also
+/// forms the basis for bounds checking/
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ComponentRange<C: Component> {
     range: Range<isize>,
@@ -148,38 +156,26 @@ impl<C: Component> ComponentRange<C> {
     /// # Example:
     ///
     /// ```
-    /// use gridly::range::ComponentRange;
+    /// use gridly::range::RowRange;
     /// use gridly::location::{Row, Column};
     /// use gridly::shorthand::L;
     ///
-    /// let mut range = ComponentRange::bounded(Row(3), Row(6)).combine(Column(4));
+    /// let row_range = RowRange::bounded(Row(3), Row(6));
+    /// let mut loc_range = row_range.cross(Column(4));
     ///
-    /// assert_eq!(range.next(), Some(L(3, 4)));
-    /// assert_eq!(range.next(), Some(L(4, 4)));
-    /// assert_eq!(range.next(), Some(L(5, 4)));
-    /// assert_eq!(range.next(), None);
+    /// assert_eq!(loc_range.next(), Some(L(3, 4)));
+    /// assert_eq!(loc_range.next(), Some(L(4, 4)));
+    /// assert_eq!(loc_range.next(), Some(L(5, 4)));
+    /// assert_eq!(loc_range.next(), None);
     /// ```
-    pub fn combine(self, index: C::Converse) -> LocationRange<C::Converse> {
+    pub fn cross(self, index: C::Converse) -> LocationRange<C::Converse> {
         LocationRange::new(index, self)
-    }
-
-    /// Combine this range with an orthogonal range to produce an iterator
-    /// over all locations covered by the two ranges.
-    ///
-    /// # Example
-    pub fn cross(
-        self,
-        cross_range: ComponentRange<C::Converse>,
-    ) -> impl Iterator<Item = Location> + FusedIterator + Clone {
-        // TODO: replace this with a custom iterator that provides
-        // DoubleEndedIterator, ExactSize, TrustedLen, etc.
-        self.flat_map(move |component| cross_range.clone().combine(component))
     }
 }
 
 // TODO: impl RangeBounds for ComponentRange.
 
-// TODO: add a bunch more iterator methods that forward to self.range.
+// TODO: add a bunch more iterator methods that forward to self.range;
 impl<C: Component> Iterator for ComponentRange<C> {
     type Item = C;
 
@@ -215,6 +211,7 @@ impl<C: Component> ExactSizeIterator for ComponentRange<C> {}
 impl<C: Component> FusedIterator for ComponentRange<C> {}
 // TODO: TrustedLen when stable
 
+/// A range over
 pub type RowRange = ComponentRange<Row>;
 pub type ColumnRange = ComponentRange<Column>;
 
@@ -253,8 +250,8 @@ pub enum RangeError<T: Component> {
 impl<T: Component> Display for RangeError<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            RangeError::TooLow(min) => write!(f, "too low, must be >= {:?}", min),
-            RangeError::TooHigh(max) => write!(f, "too high, must be < {:?}", max),
+            RangeError::TooLow(min) => write!(f, "{} too low, must be >= {:?}", T::name(), min),
+            RangeError::TooHigh(max) => write!(f, "{} too high, must be < {:?}", T::name(), max),
         }
     }
 }
@@ -265,8 +262,9 @@ impl<T: Component> Display for RangeError<T> {
 pub type RowRangeError = RangeError<Row>;
 pub type ColumnRangeError = RangeError<Column>;
 
-/// A range over [`Location`]s in a given [`Row`] or [`Column`]. The generic
-/// parameter is the direction of the range; that is to say, a
+/// A range over [`Location`]s in a given [`Row`] or [`Column`].
+///
+/// The generic parameter is the direction of the range; that is to say, a
 /// `LocationRange<Row>` is a range of locations in a given row. Each location
 /// in the range has the same `row` but a different `column`.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -277,45 +275,85 @@ pub struct LocationRange<C: Component> {
 
 impl<C: Component> LocationRange<C> {
     #[inline]
+    #[must_use]
     pub fn new(index: C, range: ComponentRange<C::Converse>) -> Self {
         LocationRange { index, range }
     }
 
     #[inline]
+    #[must_use]
     pub fn bounded(index: C, start: C::Converse, end: C::Converse) -> Self {
         Self::new(index, ComponentRange::bounded(start, end))
     }
 
     #[inline]
+    #[must_use]
     pub fn span(index: C, start: C::Converse, size: <C::Converse as Component>::Distance) -> Self {
         Self::bounded(index, start, start.add_distance(size))
     }
 
     #[inline]
+    #[must_use]
     pub fn rooted(root: Location, size: <C::Converse as Component>::Distance) -> Self {
         Self::span(root.get_component(), root.get_component(), size)
     }
 
     #[inline]
+    #[must_use]
     pub fn component_range(&self) -> ComponentRange<C::Converse> {
         self.range.clone()
     }
 
     #[inline]
+    #[must_use]
     pub fn index(&self) -> C {
         self.index
     }
 
+    #[inline]
+    #[must_use]
     pub fn start(&self) -> Location {
         self.range.start().combine(self.index)
     }
 
+    #[inline]
+    #[must_use]
     pub fn end(&self) -> Location {
         self.range.end().combine(self.index)
     }
 
+    #[inline]
+    #[must_use]
     pub fn size(&self) -> <C::Converse as Component>::Distance {
         self.range.start().distance_to(self.range.end())
+    }
+}
+
+impl LocationRange<Row> {
+    #[inline]
+    #[must_use]
+    pub fn row(&self) -> Row {
+        self.index
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn columns(&self) -> ColumnRange {
+        self.component_range()
+    }
+}
+
+impl LocationRange<Column> {
+    #[inline]
+    #[must_use]
+    pub fn column(&self) -> Column {
+        self.index
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn rows(&self) -> RowRange {
+        self.component_range()
     }
 }
 
