@@ -112,13 +112,14 @@ impl<G: Grid> Grid for &mut G {
     }
 }
 
-/// A view of the Rows or Columns in a grid.
+/// A view of the rows or columns in a grid.
 ///
 /// This struct provides a row- or column-major view of a grid. For instance,
-/// a `View<MyGrid, Row>` is a View of all of the rows in `MyGrid`.
-///
-/// A view can be indexed over its major ordering. For example, a `View<G, Row>`
-/// can be indexed by [`Row`].
+/// a `View<MyGrid, Row>` is a view of all of the rows in `MyGrid`. The view
+/// can be indexed over its type (for instance, a `View<G, Row>` can be
+/// indexed by [`Row`]). It can also be iterated, where each iteration step
+/// produces a [`SingleView`], which is a view of a single row or column (that
+/// single view can itself be iterated to get all the cells).
 #[derive(Debug)]
 pub struct View<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
@@ -181,6 +182,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
     }
 }
 
+// Custom clone implementation, because View is `Clone` even if G and T are not
 impl<'a, G: Grid + ?Sized, T: LocComponent> Clone for View<'a, G, T> {
     fn clone(&self) -> Self {
         Self {
@@ -196,6 +198,8 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> Clone for View<'a, G, T> {
 // now we require uses to use the iter() method.
 
 /// A view over the rows of a grid.
+///
+/// See `View` for more details.
 pub type RowsView<'a, G> = View<'a, G, Row>;
 
 impl<'a, G: Grid + ?Sized> RowsView<'a, G> {
@@ -206,6 +210,8 @@ impl<'a, G: Grid + ?Sized> RowsView<'a, G> {
 }
 
 /// A view over the columns of a grid.
+///
+/// See `View` for more details.
 pub type ColumnsView<'a, G> = View<'a, G, Column>;
 
 impl<'a, G: Grid + ?Sized> ColumnsView<'a, G> {
@@ -227,9 +233,10 @@ impl<'a, G: Grid + ?Sized> ColumnsView<'a, G> {
 pub struct SingleView<'a, G: Grid + ?Sized, T: LocComponent> {
     grid: &'a G,
 
-    // Implementor notes: a GridSingleView's index field is guaranteed to have been
-    // bounds checked against the grid. Therefore, we provide unsafe constructors, and
-    // then freely use unsafe accessors in the safe interface.
+    // Implementor notes: a GridSingleView's index field is guaranteed to
+    // have been bounds checked against the grid. Therefore, we provide
+    // unsafe and checked constructors, then freely use unsafe accessors
+    // in the safe interface.
     index: T,
 }
 
@@ -342,6 +349,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> Index<T::Converse> for SingleView<'a
     }
 }
 
+// Manually implement clone, because T and G do not need to be clone.
 impl<'a, G: Grid + ?Sized, T: LocComponent> Clone for SingleView<'a, G, T> {
     fn clone(&self) -> Self {
         Self {
@@ -351,18 +359,26 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> Clone for SingleView<'a, G, T> {
     }
 }
 
+/// A view of a single row of a grid.
+///
+/// See [`SingleView`] for more details.
 pub type RowView<'a, G> = SingleView<'a, G, Row>;
 
 impl<'a, G: Grid + ?Sized> RowView<'a, G> {
+    /// Get a reference to the cell in a specific column of this view's row.
     #[inline]
     pub fn column(&self, column: impl Into<Column>) -> Result<&'a G::Item, ColumnRangeError> {
         self.get(column.into())
     }
 }
 
+/// A view of a single column of a grid.
+///
+/// See [`SingleView`] for more details.
 pub type ColumnView<'a, G> = SingleView<'a, G, Column>;
 
 impl<'a, G: Grid + ?Sized> ColumnView<'a, G> {
+    /// Get a reference to the cell in a specific row of this view's column.
     #[inline]
     pub fn row(&self, row: impl Into<Row>) -> Result<&'a G::Item, RowRangeError> {
         self.get(row.into())

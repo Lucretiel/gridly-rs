@@ -2,9 +2,6 @@ use std::iter::repeat_with;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
 
-#[cfg(feature = "generations")]
-use generations::Clearable;
-
 use gridly::prelude::*;
 
 /// A grid that stores its elements in a `Vec<T>`, in row-major order.
@@ -35,7 +32,8 @@ impl<T> VecGrid<T> {
 
     /// Create a new `VecGrid`, filled with elements by repeatedly calling a
     /// function. The function is called once per cell in an unspecified order;
-    /// use [`new_with`] if you want to have per-cell initialization logic.
+    /// use [`new_with`][VecGrid::new_with] if you want to have per-cell
+    /// initialization logic.
     ///
     /// Returns the grid, or `None` if the `dimensions` were invalid.
     ///
@@ -49,8 +47,9 @@ impl<T> VecGrid<T> {
     /// assert_eq!(grid[(1, 0)], "Hello, World!")
     /// ```
     ///
-    /// See also [`new`] for filling a grid with a type's [default] value, and
-    /// [`new_fill`] for filling a grid with a clone of a value.
+    /// See also [`new`][VecGrid::new] for filling a grid with a type's
+    /// [default][Default] value, and [`new_fill`][VecGrid::new_fill] for
+    /// filling a grid with a clone of a value.
     pub fn new_fill_with(dimensions: impl VectorLike, gen: impl Fn() -> T) -> Option<Self> {
         let dimensions = dimensions.as_vector();
         let volume = Self::get_volume(&dimensions)?;
@@ -290,12 +289,5 @@ impl<T> GridMut for VecGrid<T> {
     unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
         let index = self.index_for_location(location);
         self.storage.get_unchecked_mut(index)
-    }
-}
-
-#[cfg(feature = "generations")]
-impl<T: Default> Clearable for VecGrid<T> {
-    fn clear(&mut self) {
-        VecGrid::clear(self)
     }
 }

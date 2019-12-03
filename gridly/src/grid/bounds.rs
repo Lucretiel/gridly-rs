@@ -27,7 +27,6 @@ pub trait GridBounds {
     ///
     /// [`Location`]: Location
     /// [`zero`]: Location::zero
-    #[inline]
     #[must_use]
     fn root(&self) -> Location;
 

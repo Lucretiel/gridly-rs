@@ -3,9 +3,6 @@ use std::fmt::Debug;
 use std::iter::FusedIterator;
 use std::ops::{Index, IndexMut};
 
-#[cfg(feature = "generations")]
-use generations::Clearable;
-
 use gridly::prelude::*;
 
 /// A sparse grid, where most of the cells are some default grid.
@@ -61,7 +58,7 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
         }
     }
 
-    /// Get a reference to the default value. Most cells in the grid have this value.
+    /// Get a reference to the default value.
     pub fn get_default(&self) -> &T {
         &self.default
     }
@@ -159,14 +156,6 @@ impl<T: Clone + PartialEq, L: LocationLike> Index<L> for SparseGrid<T> {
     }
 }
 
-impl<T: Clone + PartialEq, L: LocationLike> IndexMut<L> for SparseGrid<T> {
-    fn index_mut(&mut self, location: L) -> &mut T {
-        self.get_mut(&location).unwrap_or_else(|bounds_err| {
-            panic!("{:?} out of bounds: {}", location.as_location(), bounds_err)
-        })
-    }
-}
-
 impl<T: Clone + PartialEq> GridSetter for SparseGrid<T> {
     /// Set the value of a cell in the grid. If this value compares equal to
     /// the default, remove it from the underlying hash table. Return the
@@ -205,9 +194,10 @@ impl<T: Clone + PartialEq> GridMut for SparseGrid<T> {
     }
 }
 
-#[cfg(feature = "generations")]
-impl<T: Clone + PartialEq> Clearable for SparseGrid<T> {
-    fn clear(&mut self) {
-        SparseGrid::clear(self)
+impl<T: Clone + PartialEq, L: LocationLike> IndexMut<L> for SparseGrid<T> {
+    fn index_mut(&mut self, location: L) -> &mut T {
+        self.get_mut(&location).unwrap_or_else(|bounds_err| {
+            panic!("{:?} out of bounds: {}", location.as_location(), bounds_err)
+        })
     }
 }

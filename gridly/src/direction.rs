@@ -1,4 +1,4 @@
-//! A simple enumeration for the 4 cardinal direction.
+//! A simple enumeration for the 4 cardinal directions.
 
 use core::ops::{Add, Mul, Neg, Sub};
 
@@ -26,7 +26,45 @@ pub enum Direction {
 
 pub use Direction::{Down, Left, Right, Up};
 
+macro_rules! string_match {
+    ($input:expr => $($($pattern:literal)* => $result:expr;)*) => {
+        if false {None}
+        $($(
+            else if $input.eq_ignore_ascii_case($pattern) {Some($result)}
+        )*)*
+        else {None}
+    }
+}
+
 impl Direction {
+    /// Parse a direction name into a direction. Currently supported
+    /// names are (case insensitive):
+    /// - `Up`: Up, North, U, N
+    /// - `Down`: Down, South, D, S
+    /// - `Left`: Left, West, L, W
+    /// - `Right`: Right, East, R, E
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    ///
+    /// assert_eq!(Direction::from_name("up"), Some(Up));
+    /// assert_eq!(Direction::from_name("West"), Some(Left));
+    /// assert_eq!(Direction::from_name("Foo"), None);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn from_name(name: &str) -> Option<Self> {
+        string_match! {
+            name =>
+                "up"    "u" "north" "n" => Up;
+                "down"  "d" "south" "s" => Down;
+                "left"  "l" "west"  "w" => Left;
+                "right" "r" "east"  "e" => Right;
+        }
+    }
+
     /// Return a vector with the given length in this direction
     ///
     /// # Example:
@@ -369,6 +407,35 @@ impl VectorLike for Direction {
     fn direction(&self) -> Option<Direction> {
         Some(*self)
     }
+}
+
+#[test]
+fn test_from_str() {
+    for variant in &[
+        "up", "u", "north", "n", "UP", "U", "NORTH", "N", "Up", "U", "North", "N",
+    ] {
+        assert_eq!(Direction::from_name(variant), Some(Up));
+    }
+
+    for variant in &[
+        "down", "d", "south", "s", "DOWN", "D", "SOUTH", "S", "Down", "D", "South", "S",
+    ] {
+        assert_eq!(Direction::from_name(variant), Some(Down));
+    }
+
+    for variant in &[
+        "left", "l", "west", "w", "LEFT", "L", "WEST", "W", "Left", "L", "West", "W",
+    ] {
+        assert_eq!(Direction::from_name(variant), Some(Left));
+    }
+
+    for variant in &[
+        "right", "r", "east", "e", "RIGHT", "R", "EAST", "E", "Right", "R", "East", "E",
+    ] {
+        assert_eq!(Direction::from_name(variant), Some(Right));
+    }
+
+    assert_eq!(Direction::from_name("foo"), None);
 }
 
 #[cfg(test)]
