@@ -27,7 +27,7 @@ pub enum Direction {
 pub use Direction::{Down, Left, Right, Up};
 
 macro_rules! string_match {
-    ($input:expr => $($($pattern:literal)* => $result:expr;)*) => {
+    ($input:expr => $($($pattern:literal)+ => $result:expr;)*) => {
         if false {None}
         $($(
             else if $input.eq_ignore_ascii_case($pattern) {Some($result)}

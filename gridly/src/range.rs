@@ -5,22 +5,22 @@
 //! [`Column`]: crate::location::Column
 //! [`Location`]: crate::location::Location
 
+use core::cmp::Ordering;
 use core::fmt::{self, Display, Formatter};
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::ops::Range;
 
 use crate::location::{Column, Component, Location, LocationLike, Row};
+use crate::vector::Component as VecComponent;
 
 // TODO: replace this with ops::Range<C> once Step is stabilized. Mostly
 // we want this so that we can take advantage of `Range`'s very optimized
 // iterators.
-/// A range over [`Row`] or [`Column`] values.
-///
-/// This struct represents a range over [`Row`] or [`Column`] values. Much like
-/// the standard rust [`Range`](::core::ops::Range), it is half open, bounded
-/// by `[start..end)`. It supports simple accessors and iteration. It also
-/// forms the basis for bounds checking/
+/// A range over [`Row`] or [`Column`] values. Much like the standard rust
+/// [`Range`](::core::ops::Range), it is half open, bounded by `[start..end)`.
+/// It supports simple accessors and iteration. It also forms the basis
+/// for bounds checking, through the [`check`][ComponentRange::check] method.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ComponentRange<C: Component> {
     range: Range<isize>,
@@ -48,6 +48,7 @@ impl<C: Component> ComponentRange<C> {
     /// assert_eq!(range.next(), Some(Row(2)));
     /// assert_eq!(range.next(), None);
     /// ```
+    #[must_use]
     #[inline]
     pub fn bounded(start: C, end: C) -> Self {
         ComponentRange {
@@ -75,18 +76,21 @@ impl<C: Component> ComponentRange<C> {
     /// assert_eq!(range.next(), Some(Column(2)));
     /// assert_eq!(range.next(), None);
     /// ```
+    #[must_use]
     #[inline]
     pub fn span(start: C, size: C::Distance) -> Self {
         Self::bounded(start, start.add_distance(size))
     }
 
     /// Get the start index of the range
+    #[must_use]
     #[inline]
     pub fn start(&self) -> C {
         self.range.start.into()
     }
 
     /// Get the end index of the range
+    #[must_use]
     #[inline]
     pub fn end(&self) -> C {
         self.range.end.into()
@@ -104,6 +108,7 @@ impl<C: Component> ComponentRange<C> {
     /// let range = ComponentRange::bounded(Row(-1), Row(3));
     /// assert_eq!(range.size(), Rows(4));
     /// ```
+    #[must_use]
     #[inline]
     pub fn size(&self) -> C::Distance {
         self.start().distance_to(self.end())
@@ -145,13 +150,13 @@ impl<C: Component> ComponentRange<C> {
     }
 
     /// Check that a `Row` or `Column` is in bounds for this range.
+    #[must_use]
     #[inline]
     pub fn in_bounds(&self, loc: impl Into<C>) -> bool {
         self.check(loc).is_ok()
     }
 
-    /// Combine an index range with a converse index to create a [location range],
-    /// which is a range over locations, rather than Row or Column indexes.
+    /// Combine an index range with a converse index to create a [`LocationRange`]
     ///
     /// # Example:
     ///
@@ -168,6 +173,8 @@ impl<C: Component> ComponentRange<C> {
     /// assert_eq!(loc_range.next(), Some(L(5, 4)));
     /// assert_eq!(loc_range.next(), None);
     /// ```
+    #[must_use]
+    #[inline]
     pub fn cross(self, index: C::Converse) -> LocationRange<C::Converse> {
         LocationRange::new(index, self)
     }
@@ -184,6 +191,7 @@ impl<C: Component> Iterator for ComponentRange<C> {
         self.range.next().map(C::from)
     }
 
+    #[must_use]
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.range.size_hint()
@@ -211,11 +219,8 @@ impl<C: Component> ExactSizeIterator for ComponentRange<C> {}
 impl<C: Component> FusedIterator for ComponentRange<C> {}
 // TODO: TrustedLen when stable
 
-/// A range over
 pub type RowRange = ComponentRange<Row>;
 pub type ColumnRange = ComponentRange<Column>;
-
-// TODO: Error implementation
 
 /// Error indicating that a Row or Column was out of bounds.
 ///
@@ -230,6 +235,7 @@ pub type ColumnRange = ComponentRange<Column>;
 /// use gridly::range::{ComponentRange, RangeError};
 /// use gridly::location::Row;
 /// let range = ComponentRange::bounded(Row(0), Row(10));
+///
 ///
 /// assert_eq!(range.check(-5), Err(RangeError::TooLow(Row(0))));
 /// assert_eq!(range.check(15), Err(RangeError::TooHigh(Row(10))));
@@ -289,7 +295,7 @@ impl<C: Component> LocationRange<C> {
     #[inline]
     #[must_use]
     pub fn span(index: C, start: C::Converse, size: <C::Converse as Component>::Distance) -> Self {
-        Self::bounded(index, start, start.add_distance(size))
+        Self::new(index, ComponentRange::span(start, size))
     }
 
     #[inline]
@@ -367,6 +373,7 @@ impl<C: Component> Iterator for LocationRange<C> {
             .map(move |cross| cross.combine(self.index))
     }
 
+    #[must_use]
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.range.size_hint()
@@ -397,3 +404,210 @@ impl<C: Component> DoubleEndedIterator for LocationRange<C> {
 impl<C: Component> FusedIterator for LocationRange<C> {}
 impl<C: Component> ExactSizeIterator for LocationRange<C> {}
 // TODO: TrustedLen
+
+/// A range over `Locations`, in row or column-major order.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct CrossRange<C: Component> {
+    // The nomenclature here assume row-major, to aid in readability.
+
+    // Our current top component
+    top: C,
+
+    // Our current bottom component. Inclusive; may == top.
+    bottom: C,
+
+    // This is the span we reset to each time we step top or bottom
+    span: ComponentRange<C::Converse>,
+
+    next_front: C::Converse,
+
+    // Exclusive outer bound
+    next_back: C::Converse,
+}
+
+impl<C: Component> CrossRange<C> {
+    #[must_use]
+    #[inline]
+    pub fn new(major: ComponentRange<C>, cross: ComponentRange<C::Converse>) -> Self {
+        Self {
+            top: major.start(),
+            bottom: major.end().add_distance(-1),
+
+            next_front: cross.start(),
+            next_back: cross.end(),
+
+            span: cross,
+        }
+    }
+
+    /// Count the remianing elements in this iterator. Helper for size_hint.
+    #[must_use]
+    fn size(&self) -> Option<usize> {
+        match self.top.cmp(&self.bottom) {
+            Ordering::Greater => Some(0),
+            Ordering::Equal => Some(self.next_front.distance_to(self.next_back).value() as usize),
+            Ordering::Less => {
+                // Safety: all of the ranges here are guaranteed to be positive or zero
+                // by the contract of this struct. top < bottom, so the -1 is safe.
+                let hamburger_thickness = (self.top.distance_to(self.bottom).value() as usize) - 1;
+                let hamburger_size =
+                    hamburger_thickness.checked_mul(self.span.size().value() as usize)?;
+
+                let top_bun = self.next_front.distance_to(self.span.end()).value() as usize;
+                let bottom_bun = self.span.start().distance_to(self.next_back).value() as usize;
+
+                hamburger_size.checked_add(top_bun)?.checked_add(bottom_bun)
+            }
+        }
+    }
+}
+
+impl<C: Component> Iterator for CrossRange<C> {
+    type Item = Location;
+
+    fn next(&mut self) -> Option<Location> {
+        loop {
+            match self.top.cmp(&self.bottom) {
+                Ordering::Greater => break None,
+                Ordering::Equal if self.next_front >= self.next_back => break None,
+                Ordering::Less if self.next_front >= self.span.end() => {
+                    self.top = self.top.add_distance(1);
+                    self.next_front = self.span.start();
+                }
+                _ => {
+                    let index = self.next_front;
+                    self.next_front = self.next_front.add_distance(1);
+                    break Some(index.combine(self.top));
+                }
+            }
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.size();
+
+        (size.unwrap_or(core::usize::MAX), size)
+    }
+}
+
+impl<C: Component> DoubleEndedIterator for CrossRange<C> {
+    fn next_back(&mut self) -> Option<Location> {
+        loop {
+            match self.top.cmp(&self.bottom) {
+                Ordering::Greater => break None,
+                Ordering::Equal if self.next_front >= self.next_back => break None,
+                Ordering::Less if self.next_back <= self.span.start() => {
+                    self.bottom = self.bottom.add_distance(-1);
+                    self.next_back = self.span.end();
+                }
+                _ => {
+                    self.next_back = self.next_back.add_distance(-1);
+                    break Some(self.next_back.combine(self.bottom));
+                }
+            }
+        }
+    }
+}
+
+impl<C: Component> FusedIterator for CrossRange<C> {}
+impl<C: Component> ExactSizeIterator for CrossRange<C> {}
+
+#[test]
+fn test_cross_range() {
+    use crate::vector::{Columns, Rows};
+
+    let row_range = RowRange::span(Row(-2), Rows(5));
+    let column_range = ColumnRange::span(Column(3), Columns(4));
+
+    let mut cross_range = CrossRange::new(row_range.clone(), column_range.clone());
+
+    let mut remaining = 20;
+
+    assert_eq!(cross_range.size_hint(), (20, Some(20)));
+
+    for row in row_range {
+        for column in column_range.clone() {
+            let actual = cross_range.next();
+            remaining -= 1;
+
+            assert_eq!(Some(row + column), actual);
+            assert_eq!(cross_range.size_hint(), (remaining, Some(remaining)));
+        }
+    }
+
+    assert_eq!(cross_range.next(), None);
+}
+
+#[test]
+fn test_cross_range_reverse() {
+    use crate::vector::{Columns, Rows};
+
+    let row_range = RowRange::span(Row(-2), Rows(5));
+    let column_range = ColumnRange::span(Column(3), Columns(4));
+
+    let mut cross_range = CrossRange::new(row_range.clone(), column_range.clone());
+
+    let mut remaining = 20;
+
+    assert_eq!(cross_range.size_hint(), (20, Some(20)));
+
+    for row in row_range.rev() {
+        for column in column_range.clone().rev() {
+            let actual = cross_range.next_back();
+            remaining -= 1;
+
+            assert_eq!(Some(row + column), actual);
+            assert_eq!(cross_range.size_hint(), (remaining, Some(remaining)));
+        }
+    }
+
+    assert_eq!(cross_range.next_back(), None);
+}
+
+/// Test that iteration and size hint are correct even when the iterator
+/// is being iterated from both ends.
+#[test]
+fn test_cross_range_converge() {
+    use crate::vector::{Columns, Rows};
+
+    let row_range = RowRange::span(Row(-2), Rows(5));
+    let column_range = ColumnRange::span(Column(3), Columns(4));
+
+    let mut converging_cross_range = CrossRange::new(row_range, column_range);
+
+    let mut front_cross_range = converging_cross_range.clone();
+    let mut back_cross_range = converging_cross_range.clone();
+
+    let mut remaining = 20;
+
+    while remaining > 0 {
+        let next_front = front_cross_range.next();
+        let converge_front = converging_cross_range.next();
+        remaining -= 1;
+
+        assert!(converge_front.is_some());
+        assert_eq!(next_front, converge_front);
+        assert_eq!(
+            converging_cross_range.size_hint(),
+            (remaining, Some(remaining))
+        );
+
+        let next_back = back_cross_range.next_back();
+        let converge_back = converging_cross_range.next_back();
+        remaining -= 1;
+
+        assert!(converge_back.is_some());
+        assert_eq!(next_back, converge_back);
+        assert_eq!(
+            converging_cross_range.size_hint(),
+            (remaining, Some(remaining))
+        );
+    }
+
+    assert_eq!(converging_cross_range.size_hint(), (0, Some(0)));
+    assert_eq!(converging_cross_range.next(), None);
+    assert_eq!(converging_cross_range.next_back(), None);
+    assert_eq!(converging_cross_range.size_hint(), (0, Some(0)));
+}

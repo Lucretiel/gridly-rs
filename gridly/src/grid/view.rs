@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use core::iter::FusedIterator;
+use core::iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator, Iterator};
 use core::marker::PhantomData;
 use core::ops::Index;
 
@@ -7,13 +7,13 @@ use crate::grid::{BoundsError, GridBounds};
 use crate::location::{Column, Component as LocComponent, Location, LocationLike, Row};
 use crate::range::{ColumnRangeError, ComponentRange, LocationRange, RangeError, RowRangeError};
 
-/// Base Reader trait for grids.
-///
-/// This trait provides the grid's cell type, `Item`, and an unsafe getter
-/// method for fetching a cell at a bounds-checked location. It uses this
-/// unsafe getter, plus [`GridBounds`] based bounds-checking, to provide a
-/// comprehensive and safe interface for reading and iterating over elements
-/// in a grid.
+// Add a usize to an isize, return an isize. Overflows if necessary.
+
+/// Base Reader trait for grids. This trait provides the grid's cell type,
+/// `Item`, and an unsafe getter method for fetching a cell at a bounds-checked
+/// location. It uses this unsafe getter, plus [`GridBounds`] based
+/// bounds-checking, to provide a comprehensive and safe interface for reading
+/// and iterating over elements in a grid.
 pub trait Grid: GridBounds {
     /// The item type stored in the grid
     type Item;
@@ -23,6 +23,12 @@ pub trait Grid: GridBounds {
     /// been performed on the location, which means that implementors are allowed
     /// to do their own unsafe `get` operations on the underlying storage,
     /// where relevant / possible.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the location has been bounds-checked before
+    /// calling this method. The safe interface to `Grid` automatically performs
+    /// this checking for you.
     unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item;
 
     /// Get a reference to a cell in a grid. Returns an error if the location
@@ -33,9 +39,9 @@ pub trait Grid: GridBounds {
             .map(move |loc| unsafe { self.get_unchecked(&loc) })
     }
 
-    // Get a view of a grid, over its rows or columns. A view of a grid is
-    // similar to a slice, but instead of being a view over specific elements,
-    // it's a view over the rows and columns. See `[View]` for details.
+    /// Get a view of a grid, over its rows or columns. A view of a grid is
+    /// similar to a slice, but instead of being a view over specific elements,
+    /// it's a view over the rows and columns. See `[View]` for details.
     #[inline]
     fn view<T: LocComponent>(&self) -> View<Self, T> {
         View::new(self)
@@ -53,20 +59,35 @@ pub trait Grid: GridBounds {
         self.view()
     }
 
-    /// Get a view of a single row or column in a grid, without bounds checking that
-    /// row or column index.
+    /// Get a view of a single row or column in a grid, without bounds
+    /// checking that row or column index.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the index has been bounds-checked before
+    /// calling this method.
     #[inline]
     unsafe fn single_view_unchecked<T: LocComponent>(&self, index: T) -> SingleView<Self, T> {
         SingleView::new_unchecked(self, index)
     }
 
     /// Get a view of a single row in a grid, without bounds checking that row's index.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the row index has been bounds-checked before
+    /// calling this method.
     #[inline]
     unsafe fn row_unchecked(&self, row: Row) -> RowView<Self> {
         self.single_view_unchecked(row)
     }
 
     /// Get a view of a single column in a grid, without bounds checking that column's index.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the column index has been bounds-checked before
+    /// calling this method.
     #[inline]
     unsafe fn column_unchecked(&self, column: Column) -> ColumnView<Self> {
         self.single_view_unchecked(column)
@@ -112,6 +133,11 @@ impl<G: Grid> Grid for &mut G {
     }
 }
 
+// TODO: is there a compelling reason to separate View and ViewIter? Would it
+// be preferable to make View an iterator, directly? Right now the rationalle
+// is that it slightly complicates the mental model of `View`, since getting
+// an offset would be based on the current, partially iterated range.
+
 /// A view of the rows or columns in a grid.
 ///
 /// This struct provides a row- or column-major view of a grid. For instance,
@@ -140,12 +166,17 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
 
     /// Get the length of this view; that is, the number of Rows or Columns
     #[inline]
-    pub fn len(&self) -> T::Distance {
+    pub fn size(&self) -> T::Distance {
         self.grid.dimension()
     }
 
     /// Get a view of a single row or column of the grid, without bounds checking
     /// the index.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the index has been bounds-checked before
+    /// calling this method.
     #[inline]
     pub unsafe fn get_unchecked(&self, index: T) -> SingleView<'a, G, T> {
         SingleView::new_unchecked(self.grid, index)
@@ -255,7 +286,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     /// Get the length of this view. For example, for a
     /// `SingleView<'a, G, Row>`, get the number of columns.
     #[inline]
-    pub fn len(&self) -> <T::Converse as LocComponent>::Distance {
+    pub fn size(&self) -> <T::Converse as LocComponent>::Distance {
         self.grid.dimension()
     }
 
@@ -269,6 +300,11 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
 
     /// Get a particular cell in the row or column by an index, without bounds
     /// checking the index.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the index has been bounds-checked before
+    /// calling this method.
     #[inline]
     pub unsafe fn get_unchecked(&self, cross: T::Converse) -> &'a G::Item {
         self.grid.get_unchecked(&self.index.combine(cross))

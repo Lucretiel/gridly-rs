@@ -14,11 +14,9 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector, VectorLike
 // TODO: add additional implied traits?
 // TODO: docstrings
 
-/// A component of a [`Location`]
-///
-/// This trait comprises a component of a [`Location`], which may be either a
-/// [`Row`] or a [`Column`]. It is effectively an index into a given row or
-/// column of a grid; for instance, a `Row` can index a column in a grid.
+/// A component of a [`Location`], which may be either a [`Row`] or a
+/// [`Column`]. It is effectively an index into a given row or column of a
+/// grid; for instance, a [`Row`] can index a row in a grid.
 ///
 /// In practice, most code will call methods directly on [`Row`] or [`Column`]
 /// values. However, a lot of gridly functionality is agnostic towards
@@ -26,10 +24,11 @@ use crate::vector::{Columns, Component as VecComponent, Rows, Vector, VectorLike
 /// the same as a view over a column), so the `Component` trait allows such
 /// functionality to be written generically.
 ///
-/// The key methods for `Component` that allow it to work in generic contexts
-/// are `from_location`, which gets a component from a `Location`, and `combine`,
-/// which combines a [`Row`] or [`Column`] with its converse (a `Column` or a `Row`)
-/// to create a new `Location`.
+/// The key methods for [`Component`] that allow it to work in generic contexts
+/// are [`from_location`][Component::from_location], which gets a component
+/// from a [`Location`], and [`combine`][Component::combine], which combines a
+/// [`Row`] or [`Column`] with its converse (a [`Column`] or a [`Row`]) to
+/// create a new [`Location`].
 pub trait Component: Sized + From<isize> + Copy + Debug + Ord + Eq + Hash + Default {
     /// The converse component ([`Row`] to [`Column`], or vice versa)
     type Converse: Component<Converse = Self>;
@@ -195,7 +194,7 @@ macro_rules! make_component {
         #[repr(transparent)]
         #[doc = "A "]
         #[doc = $name]
-        #[doc = " component of a [`Location`]"]
+        #[doc = " component of a [`Location`]. See [`Component`] for details."]
         pub struct $Name(pub isize);
 
         /// Adding a component to its converse (ie, a [`Row`] to a [`Column`])
@@ -391,13 +390,14 @@ macro_rules! make_component {
 make_component! {Row, Column, Rows, row, column, "row", test_row}
 make_component! {Column, Row, Columns, column, row, "column", test_column}
 
-/// A location on a grid
+/// A location on a grid. A location is the primary indexing type for a
+/// Grid, and represents a single cell on that grid. It is comprised of a
+/// [`Row`] and a [`Column`]. Increasing row count downward and increasing
+/// columns count rightward.
 ///
-/// A location is the primary indexing type for a Grid, and represents a single
-/// cell on that grid. It is comprised of a Row and a Column. Increasing rows
-/// count downward and increasing columns count rightward.
-///
-/// Locations support arithmetic operations with Vectors.
+/// Locations support arithmetic operations with [`Vector`]s. They can also be
+/// subtracted from each other to produce [`Vector`]s measuring the distance
+/// between them.
 #[derive(Debug, Clone, Copy, Default, Hash, Eq)]
 pub struct Location {
     pub row: Row,
@@ -592,8 +592,8 @@ pub trait LocationLike: Sized {
         self.into()
     }
 
-    /// Get a strictly row-ordered version of this `Location`; that is, a location
-    /// which is ordered by comparing the `row`, then the `columns`.
+    /// Get a strictly row-ordered version of this `Location`; that is, a
+    /// location which is ordered by comparing the `row`, then the `column`.
     ///
     /// Example:
     ///
@@ -616,8 +616,8 @@ pub trait LocationLike: Sized {
         self.order_by()
     }
 
-    //// Get a strictly row-ordered version of this `Location`; that is, a location
-    /// which is ordered by comparing the `row`, then the `columns`.
+    /// Get a strictly row-ordered version of this `Location`; that is, a
+    /// location which is ordered by comparing the `row`, then the `column`.
     ///
     /// Example:
     ///
@@ -953,6 +953,7 @@ mod partial_ord_tests {
     }
 }
 
+/// A pair of [`isize`] values acts as a `(`[`Row`]`, `[`Column`]`)` pair.
 impl LocationLike for (isize, isize) {
     #[inline]
     #[must_use]
@@ -973,12 +974,11 @@ impl LocationLike for (isize, isize) {
     }
 }
 
-/// Rules for ordering a Location
-///
-/// `Ordered` is a wrapper struct around a `Location` that supplies an Ord and
-/// PartialOrd implementation. The `Major` type parameter indicates which
-/// ordering is used; for instance, `Ordering<Row>` provides row-major ordering,
-/// where Locations are sorted first by row, then by column.
+/// Rules for ordering a location. This struct wraps a [`LocationLike`] and
+/// supplies an [`Ord`] and [`PartialOrd`] implementation. The `Major`
+/// type parameter indicates which ordering is used; for instance,
+/// `Ordering<Row>` provides row-major ordering, where Locations are sorted
+/// first by row, then by column.
 #[derive(Debug, Clone, Copy, Default, Hash)]
 pub struct Ordered<L: LocationLike, Major: Component> {
     pub location: L,

@@ -1,8 +1,8 @@
 //! Core grid traits.
 //!
 //! This module contains the core grid traits that power gridly grids. These
-//! traits (in combination with [`Vector`][vector::Vector] and
-//! [`Location`][location::Location]) provide all of gridly's central reading,
+//! traits (in combination with [`Vector`][crate::vector::Vector] and
+//! [`Location`][crate::location::Location]) provide all of gridly's central reading,
 //! writing, and bounds-checking functionality.
 
 mod bounds;

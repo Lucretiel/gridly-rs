@@ -111,7 +111,6 @@ pub trait GridBounds {
     /// intended to help write more expressive code; ie,
     /// `grid.check_component(Row(10)).and_then(|row| ...)`.
     #[inline]
-    #[must_use]
     fn check_component<C: LocComponent>(&self, c: C) -> Result<C, RangeError<C>> {
         self.range().check(c)
     }
@@ -122,7 +121,6 @@ pub trait GridBounds {
     /// to help write more expressive code; ie,
     /// `grid.check_row(10).and_then(|row| ...)`.
     #[inline]
-    #[must_use]
     fn check_row(&self, row: impl Into<Row>) -> Result<Row, RowRangeError> {
         self.check_component(row.into())
     }
@@ -133,7 +131,6 @@ pub trait GridBounds {
     /// to help write more expressive code; ie,
     /// `grid.check_column(10).and_then(|row| ...)`.
     #[inline]
-    #[must_use]
     fn check_column(&self, column: impl Into<Column>) -> Result<Column, ColumnRangeError> {
         self.check_component(column.into())
     }
@@ -168,7 +165,6 @@ pub trait GridBounds {
     /// error if not. This function is intended to help write more expressive
     /// code; ie, `grid.check_location(loc).and_then(|loc| ...)`.
     #[inline]
-    #[must_use]
     fn check_location(&self, location: impl LocationLike) -> Result<Location, BoundsError> {
         match (
             self.check_row(location.row()),
@@ -226,7 +222,7 @@ pub enum BoundsError {
     /// The location's [`Column`] was out of bounds.
     Column(ColumnRangeError),
 
-    /// Both the `Row` and the `Column` were out of bounds.
+    /// Both the [`Row`] and the [`Column`] were out of bounds.
     Both {
         row: RowRangeError,
         column: ColumnRangeError,
@@ -237,7 +233,7 @@ impl BoundsError {
     // TODO: fn part<T: Component>(&self) -> Option<&RangeError<T>>
     // This is probably not possible except by adding something like
     // FromBoundsError to Component and implementing it separately for Row
-    // and Column.
+    // and Column. It's also probably not necessary.
 
     /// The row component of the boundary error, if applicable.
     ///
@@ -257,7 +253,7 @@ impl BoundsError {
         use BoundsError::*;
 
         match self {
-            Row(row) | Both { row, column: _ } => Some(row),
+            Row(row) | Both { row, .. } => Some(row),
             _ => None,
         }
     }
@@ -280,7 +276,7 @@ impl BoundsError {
         use BoundsError::*;
 
         match self {
-            Column(column) | Both { column, row: _ } => Some(column),
+            Column(column) | Both { column, .. } => Some(column),
             _ => None,
         }
     }
@@ -308,7 +304,7 @@ impl Display for BoundsError {
             BoundsError::Column(err) => write!(f, "Column out of bounds: {}", err),
             BoundsError::Both { row, column } => write!(
                 f,
-                "Row and Column both out of bounds: row {row}; column {column}",
+                "Row and Column both out of bounds: {row}; {column}",
                 row = row,
                 column = column
             ),

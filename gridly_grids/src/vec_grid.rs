@@ -103,6 +103,62 @@ impl<T> VecGrid<T> {
         })
     }
 
+    /// Create a new `VecGrid` with the given dimensions. Fills the grid
+    /// in row-major order (that is, by filling the first row, then the next
+    /// row, etc) by evaluating the input iterator. Returns None if
+    /// the iterator was too short, or if the dimensions were invalid. If the
+    /// iterator is longer than required, the remaining elements are left
+    /// uniterated.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let data = [1, 2, 3, 4, 5];
+    /// let mut data_iter = data[..].iter().copied();
+    ///
+    /// let grid = VecGrid::new_row_major(
+    ///     (Rows(2), Columns(2)),
+    ///     &mut data_iter
+    /// ).unwrap();
+    ///
+    /// assert_eq!(grid[(0, 0)], 1);
+    /// assert_eq!(grid[(0, 1)], 2);
+    /// assert_eq!(grid[(1, 0)], 3);
+    /// assert_eq!(grid[(1, 1)], 4);
+    ///
+    /// // excess elements in the iterator are still available
+    /// assert_eq!(data_iter.next(), Some(5));
+    /// assert_eq!(data_iter.next(), None);
+    /// ```
+    pub fn new_row_major(
+        dimensions: impl VectorLike,
+        input: impl IntoIterator<Item = T>,
+    ) -> Option<Self> {
+        let dimensions = dimensions.as_vector();
+        let volume = Self::get_volume(&dimensions)?;
+
+        // We could just input.collect(), but the iterator may have a size_hint
+        // lower bound of 0, so we want to make sure we preallocate. Arguably,
+        // we should let the Vec manage its own storage, because a size_hint
+        // lower bound of zero means that it may not finish, and we don't want
+        // to overallocate unnecessary. However, we assume the fast path is
+        // that it usually will finish.
+        let mut storage = Vec::with_capacity(volume);
+        storage.extend(input.into_iter().take(volume));
+
+        if storage.len() != volume {
+            None
+        } else {
+            Some(VecGrid {
+                dimensions,
+                storage,
+            })
+        }
+    }
+
     /// Fill every cell in the grid with the values produced by repeatedly
     /// calling `gen`. Called in an unspecified order.
     ///
@@ -122,11 +178,48 @@ impl<T> VecGrid<T> {
     /// assert!(grid.get((1, 2)).is_err());
     /// ```
     pub fn fill_with(&mut self, gen: impl Fn() -> T) {
-        // TODO: is it more efficient to do this inline? I'm thinking probably
-        // not; it's probably better to call all drops first, then fill
+        // TODO: right now we're assuming it's faster to run all the destructors
+        // at once, then rebuild the vector from scratch.
         let volume = self.storage.len();
         self.storage.clear();
         self.storage.extend(repeat_with(gen).take(volume))
+    }
+
+    /// Fill the grid in row-major order with values from an iterator.
+    /// That is, fill the first row, then the next row, etc.
+    ///
+    /// If the iterator is longer than the volume of the grid, the
+    /// remaining elements are left uniterated. If the iterator is shorter
+    /// than the volume of the grid, the remaining existing elements in the
+    /// grid are left unaltered.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let mut grid = VecGrid::new_fill((Rows(2), Columns(2)), &10).unwrap();
+    /// let values = [1, 2, 3];
+    /// let values_iter = values[..].iter().copied();
+    ///
+    /// grid.fill_row_major(values_iter);
+    ///
+    /// assert_eq!(grid[(0, 0)], 1);
+    /// assert_eq!(grid[(0, 1)], 2);
+    /// assert_eq!(grid[(1, 0)], 3);
+    /// assert_eq!(grid[(1, 1)], 10);
+    /// ```
+    pub fn fill_row_major(&mut self, input: impl IntoIterator<Item = T>) {
+        // TODO: a naked for loop may be more performant, since Zip doesn't
+        // have fold or try_fold. For now we do it the functional way and wait
+        // for zip to gain a try fold specialization.
+        let volume = self.storage.len();
+        input
+            .into_iter()
+            .take(volume)
+            .zip(&mut self.storage)
+            .for_each(|(item, cell)| *cell = item);
     }
 }
 
@@ -148,6 +241,40 @@ impl<T: Default> VecGrid<T> {
     /// ```
     pub fn new(dimensions: impl VectorLike) -> Option<Self> {
         Self::new_fill_with(dimensions, Default::default)
+    }
+
+    /// Create a new `VecGrid` with the given dimensions. Fills the grid
+    /// in row-major order (that is, by filling the first row, then the next
+    /// row, etc) by evaluating the input iterator. Returns None if the
+    /// dimensions were invalid. If the iterator is shorter than required to
+    /// fill the grid, the remaining elements are filled with `T::default`.
+    /// iterator is longer than required, the remaining elements are left
+    /// uniterated.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let data = [1, 2, 3];
+    /// let data_iter = data[..].iter().copied();
+    ///
+    /// let grid = VecGrid::new_row_major_default(
+    ///     (Rows(2), Columns(2)),
+    ///     data_iter
+    /// ).unwrap();
+    ///
+    /// assert_eq!(grid[(0, 0)], 1);
+    /// assert_eq!(grid[(0, 1)], 2);
+    /// assert_eq!(grid[(1, 0)], 3);
+    /// assert_eq!(grid[(1, 1)], 0);
+    /// ```
+    pub fn new_row_major_default(
+        dimensions: impl VectorLike,
+        input: impl IntoIterator<Item = T>,
+    ) -> Option<Self> {
+        Self::new_row_major(dimensions, input.into_iter().chain(repeat_with(T::default)))
     }
 
     /// Replace all the cells in the grid with the default value
