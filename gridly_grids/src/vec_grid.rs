@@ -190,7 +190,10 @@ impl<T> VecGrid<T> {
     /// use gridly_grids::VecGrid;
     /// use gridly::prelude::*;
     ///
-    /// let rows: [[isize; 0]; 0] = [];
+    /// // Note that, even though the column width here is 5, no rows
+    /// // are ever iterated, so VecGrid is forced to assume (0, 0)
+    /// // dimensions.
+    /// let rows: [[isize; 5]; 0] = [];
     ///
     /// let grid = VecGrid::new_from_rows(&rows).unwrap();
     ///
