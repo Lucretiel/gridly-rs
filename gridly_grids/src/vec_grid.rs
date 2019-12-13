@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::iter::repeat_with;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
@@ -81,10 +82,7 @@ impl<T> VecGrid<T> {
     /// assert_eq!(grid.get((1, 1)), Ok(&2));
     /// assert!(grid.get((1, 2)).is_err());
     /// ```
-    pub fn new_with(
-        dimensions: impl VectorLike,
-        mut gen: impl FnMut(&Location) -> T,
-    ) -> Option<Self> {
+    pub fn new_with(dimensions: impl VectorLike, gen: impl Fn(&Location) -> T) -> Option<Self> {
         let dimensions = dimensions.as_vector();
         let columns = dimensions.columns;
 
@@ -156,6 +154,122 @@ impl<T> VecGrid<T> {
                 dimensions,
                 storage,
             })
+        }
+    }
+
+    /// Create a new `VecGrid` from an iterator of rows. Each row should be
+    /// an iterator of items in the row. The dimensions are deduced
+    /// automatically from the number of rows and columns. Returns `None`
+    /// If the number of columns is mismatched between any two rows. If the
+    /// rows iterator is empty, the returned dimensions are (0, 0).
+    ///
+    /// # Examples
+    ///
+    /// ## Basic example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let rows = vec![
+    ///     vec![1, 2, 3],
+    ///     vec![4, 5, 6],
+    ///     vec![7, 8, 9],
+    /// ];
+    ///
+    /// let grid = VecGrid::new_from_rows(&rows).unwrap();
+    ///
+    /// assert_eq!(grid[(0, 0)], &1);
+    /// assert_eq!(grid[(1, 1)], &5);
+    /// assert_eq!(grid[(2, 2)], &9);
+    /// ```
+    ///
+    /// ## Empty grid example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let rows: [[isize; 0]; 0] = [];
+    ///
+    /// let grid = VecGrid::new_from_rows(&rows).unwrap();
+    ///
+    /// assert_eq!(grid.dimensions(), (0, 0));
+    /// ```
+    ///
+    /// ## Mistmatched row length example
+    ///
+    /// ```
+    /// use gridly_grids::VecGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let rows = vec![
+    ///     vec![1, 2, 3],
+    ///     vec![4, 5],
+    /// ];
+    ///
+    /// let grid = VecGrid::new_from_rows(&rows);
+    ///
+    /// assert!(grid.is_none());
+    /// ```
+    pub fn new_from_rows<R, C>(rows: R) -> Option<Self>
+    where
+        R: IntoIterator<Item = C>,
+        C: IntoIterator<Item = T>,
+    {
+        let mut rows = rows.into_iter();
+
+        match rows.next() {
+            Some(first_row) => {
+                let first_row = first_row.into_iter();
+
+                let est_remaining_rows = rows.size_hint().0;
+                let est_row_width = first_row.size_hint().0;
+
+                let mut storage = Vec::new();
+
+                // Perform an allocation estimate
+                if let Some(volume) = est_row_width.checked_mul(est_remaining_rows + 1) {
+                    storage.reserve(volume)
+                }
+
+                // Add the first row to storage and get our actual row width
+                storage.extend(first_row);
+                let row_width = storage.len();
+
+                // Now that we have a known row width, retry the allocation
+                // estimate. In most cases this will not result in additional
+                // allocation because our initial estimate was probably
+                // correct.
+                if let Some(additional_volume) = row_width.checked_mul(est_remaining_rows) {
+                    storage.reserve(additional_volume)
+                }
+
+                // If row_width is longer than isize, we have to return None
+                let num_columns = Columns(row_width.try_into().ok()?);
+                let mut num_rows = Rows(1);
+
+                for row in rows {
+                    num_rows = Rows(num_rows.0.checked_add(1)?);
+
+                    let old_volume = storage.len();
+                    storage.extend(row);
+                    let new_volume = storage.len();
+
+                    if new_volume - old_volume != row_width {
+                        return None;
+                    }
+                }
+
+                Some(VecGrid {
+                    dimensions: num_rows + num_columns,
+                    storage,
+                })
+            }
+            None => Some(VecGrid {
+                storage: Vec::default(),
+                dimensions: Vector::zero(),
+            }),
         }
     }
 
@@ -248,8 +362,8 @@ impl<T: Default> VecGrid<T> {
     /// row, etc) by evaluating the input iterator. Returns None if the
     /// dimensions were invalid. If the iterator is shorter than required to
     /// fill the grid, the remaining elements are filled with `T::default`.
-    /// iterator is longer than required, the remaining elements are left
-    /// uniterated.
+    /// If the iterator is longer than required, the remaining elements are
+    /// left uniterated.
     ///
     /// # Example:
     ///
@@ -277,7 +391,8 @@ impl<T: Default> VecGrid<T> {
         Self::new_row_major(dimensions, input.into_iter().chain(repeat_with(T::default)))
     }
 
-    /// Replace all the cells in the grid with the default value
+    /// Replace all the cells in the grid with the default value. Doesn't
+    /// change the dimensions of the grid.
     ///
     /// # Example
     ///
@@ -318,7 +433,7 @@ impl<T: Clone> VecGrid<T> {
         Self::new_fill_with(dimensions, move || value.clone())
     }
 
-    /// Fill every element in the grid with clones of `value`
+    /// Fill every element in the grid with clones of `value`.
     ///
     /// # Example
     ///
@@ -341,7 +456,7 @@ impl<T: Clone> VecGrid<T> {
 }
 
 impl<T: Copy> VecGrid<T> {
-    /// Create a new `VecGrid` filled with copies of `value`
+    /// Create a new `VecGrid` filled with copies of `value`.
     ///
     /// # Example
     ///
@@ -356,6 +471,9 @@ impl<T: Copy> VecGrid<T> {
     /// assert_eq!(grid.get((1, 1)), Ok(&10));
     /// assert!(grid.get((1, 2)).is_err());
     /// ```
+    // This does't really need to exist, since we have new_fill, but we
+    // provide it for consistency with the numerous other  interfaces that
+    // provide both clone and copy versions.
     pub fn new_fill_copied(dimensions: impl VectorLike, value: T) -> Option<Self> {
         Self::new_fill_with(dimensions, move || value)
     }
