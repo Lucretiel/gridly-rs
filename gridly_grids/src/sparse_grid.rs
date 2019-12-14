@@ -110,6 +110,74 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
         self.clean();
         self.storage.iter_mut()
     }
+
+    /// Insert a value into this grid at an arbitrary location. If the location
+    /// is outside the grid's bounds, the grid's bounds are updated to include
+    /// this value. Returns the previous value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly_grids::SparseGrid;
+    /// use gridly::prelude::*;
+    ///
+    /// let mut grid: SparseGrid<isize> = SparseGrid::new((0, 0));
+    ///
+    /// assert_eq!(grid.root(), (0, 0));
+    /// assert_eq!(grid.dimensions(), (0, 0));
+    ///
+    /// grid.insert((-1, 0), 10);
+    ///
+    /// assert_eq!(grid.root(), (-1, 0));
+    /// assert_eq!(grid.dimensions(), (1, 1));
+    /// assert_eq!(grid[(-1, 0)], 10);
+    ///
+    /// grid.insert((0, 1), 5);
+    ///
+    /// assert_eq!(grid.root(), (-1, 0));
+    /// assert_eq!(grid.dimensions(), (2, 2));
+    /// assert_eq!(grid[(0, 1)], 5);
+    ///
+    /// grid.insert((1, 0), 4);
+    ///
+    /// assert_eq!(grid.root(), (-1, 0));
+    /// assert_eq!(grid.dimensions(), (3, 2));
+    /// assert_eq!(grid[(1, 0)], 4);
+    ///
+    /// grid.insert((0, -1), 3);
+    ///
+    /// assert_eq!(grid.root(), (-1, -1));
+    /// assert_eq!(grid.dimensions(), (3, 3));
+    /// assert_eq!(grid[(0, -1)], 3);
+    /// ```
+    #[inline]
+    pub fn insert(&mut self, location: impl LocationLike, value: T) -> T {
+        let location = location.as_location();
+
+        let outer_row = self.root.row + self.dimensions.rows;
+        let outer_column = self.root.column + self.dimensions.columns;
+
+        if location.row < self.root.row {
+            let diff = self.root.row - location.row;
+            self.root.row = location.row;
+            self.dimensions.rows += diff;
+        } else if location.row >= outer_row {
+            self.dimensions.rows = (location.row - self.root.row) + 1;
+        }
+
+        if location.column < self.root.column {
+            let diff = self.root.column - location.column;
+            self.root.column = location.column;
+            self.dimensions.columns += diff;
+        } else if location.column >= outer_column {
+            self.dimensions.columns = (location.column - self.root.column) + 1;
+        }
+
+        // Safety: not really unsafe, because HashMap has no unsafe accessors.
+        // However, we're assured that the dimensions are correct after the
+        // above logic.
+        unsafe { self.replace_unchecked(&location, value) }
+    }
 }
 
 impl<T: Clone + PartialEq + Default> SparseGrid<T> {
