@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator, Iterator};
 use core::marker::PhantomData;
 use core::ops::Index;
@@ -112,6 +112,22 @@ pub trait Grid: GridBounds {
     #[inline]
     fn column(&self, column: impl Into<Column>) -> Result<ColumnView<Self>, ColumnRangeError> {
         self.single_view(column.into())
+    }
+
+    /// Make a grid [`Display`]able, using a function that defines how each of its
+    /// cells are printed. For each row, the adapter simply prints each cell
+    /// in the row, followed by a newline.
+    ///
+    /// Note that this adapter doesn't make any attempt to ensure the printed
+    /// grid is visually a rectangle. It is up to the display adapter function
+    /// `func` to ensure that each cell has the same width when printed.
+    #[inline]
+    fn display_with<T, F>(&self, func: F) -> DisplayAdapter<&Self, F>
+    where
+        F: Fn(&Self::Item) -> T,
+        T: Display,
+    {
+        DisplayAdapter { grid: self, func }
     }
 }
 
@@ -418,6 +434,30 @@ impl<'a, G: Grid + ?Sized> ColumnView<'a, G> {
     #[inline]
     pub fn row(&self, row: impl Into<Row>) -> Result<&'a G::Item, RowRangeError> {
         self.get(row.into())
+    }
+}
+
+/// A wrapper around a grid, allowing it to be printed via [`Display`]. See
+/// [`Grid`]`::`[`display_with`][Grid::display_with] for details.
+#[derive(Debug, Copy, Clone)]
+pub struct DisplayAdapter<T, F> {
+    func: F,
+    grid: T,
+}
+
+impl<T, F, R> Display for DisplayAdapter<T, F>
+where
+    T: Grid,
+    F: Fn(&T::Item) -> R,
+    R: Display,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let func = &self.func;
+
+        self.grid.rows().iter().try_for_each(move |row| {
+            row.iter().map(func).try_for_each(|cell| cell.fmt(f))?;
+            f.write_char('\n')
+        })
     }
 }
 

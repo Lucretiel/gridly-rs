@@ -12,7 +12,7 @@ categories = [
 ]
 
 [dependencies]
-gridly = { path = "../gridly", version = "0.7.0" }
+gridly = { path = "../gridly", version = "0.7.1" }
 
 [badges]
 travis-ci = { repository = "Lucretiel/gridly-rs" }

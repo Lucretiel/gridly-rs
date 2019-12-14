@@ -12,5 +12,7 @@ mod view_mut;
 
 pub use bounds::{BoundsError, GridBounds};
 pub use setter::GridSetter;
-pub use view::{ColumnView, ColumnsView, Grid, RowView, RowsView, SingleView, View};
+pub use view::{
+    ColumnView, ColumnsView, DisplayAdapter, Grid, RowView, RowsView, SingleView, View,
+};
 pub use view_mut::GridMut;
