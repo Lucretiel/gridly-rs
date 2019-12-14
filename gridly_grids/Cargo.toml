@@ -1,6 +1,6 @@
 [package]
 name = "gridly_grids"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 edition = "2018"
 description = "Some basic implementations of gridly grids"
