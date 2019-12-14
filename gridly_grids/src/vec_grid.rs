@@ -16,6 +16,7 @@ impl<T> VecGrid<T> {
     /// Given the prospective dimensions of a grid, return the volume of the
     /// grid if the dimensions are valid, or None otherwise. Used as a helper
     /// in the `VecGrid` constructors.
+    #[inline]
     fn get_volume(dimensions: &Vector) -> Option<usize> {
         if dimensions.rows < 0 || dimensions.columns < 0 {
             None
@@ -27,7 +28,14 @@ impl<T> VecGrid<T> {
     /// Given a bounds-checked location, return the index of the vector
     /// associated with that location. Performs no bounds checking, either
     /// on the input `location` or the output `usize`
-    unsafe fn index_for_location(&self, loc: &Location) -> usize {
+    ///
+    /// # Safety
+    ///
+    /// Unsafe because of unchecked conversion to usize after potentially
+    /// overflowing operations
+    #[inline]
+    const unsafe fn index_for_location(&self, loc: &Location) -> usize {
+        // Eagerly cast to usize to minimize the chance for overflow
         (loc.row.0 as usize * self.dimensions.columns.0 as usize) + loc.column.0 as usize
     }
 
