@@ -252,8 +252,15 @@ macro_rules! make_component {
                 self.combine($Converse(0))
             }
 
-            // TODO: custom implementations for VectorLike methods?
-            // We assume that
+            #[inline]
+            fn manhattan_length(&self) -> isize {
+                self.0.abs()
+            }
+
+            #[inline]
+            fn checked_manhattan_length(&self) -> Option<isize> {
+                self.0.checked_abs()
+            }
         }
 
         impl VectorLike for ($Name, $Converse) {
@@ -271,10 +278,6 @@ macro_rules! make_component {
             fn as_vector(&self) -> Vector {
                 self.0.combine(self.1)
             }
-
-            // TODO: custom method implementations where they can be more
-            // efficient. For now we assume that the compiler is smart enough
-            // to inline (self.combine(0))
         }
 
         impl Sum for $Name {
@@ -286,9 +289,8 @@ macro_rules! make_component {
 
         impl<'a> Sum<&'a $Name> for $Name {
             fn sum<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
-                iter.fold($Name(0), |lhs, rhs| lhs + *rhs)
+                iter.copied().sum()
             }
-
         }
 
         impl Component for $Name {
@@ -495,7 +497,6 @@ impl Vector {
     }
 }
 
-///
 pub trait VectorLike: Sized {
     fn rows(&self) -> Rows;
     fn columns(&self) -> Columns;
