@@ -1,6 +1,6 @@
 [package]
 name = "gridly_grids"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 edition = "2018"
 description = "Some basic implementations of gridly grids"
@@ -12,7 +12,7 @@ categories = [
 ]
 
 [dependencies]
-gridly = { path = "../gridly", version = "0.7.1" }
+gridly = { path = "../gridly", version = "0.8.0" }
 
 [badges]
 travis-ci = { repository = "Lucretiel/gridly-rs" }
