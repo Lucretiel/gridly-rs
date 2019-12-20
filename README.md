@@ -1,2 +1,2 @@
 # gridly-rs
-A rust library for managing fixed-size discrete 2D spaces.
+A 2D grid library written for humans instead of linear algebraists.
