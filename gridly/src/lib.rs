@@ -2,6 +2,7 @@ pub mod direction;
 pub mod grid;
 pub mod location;
 pub mod range;
+pub mod rotation;
 pub mod vector;
 
 /// The shorthand module includes quick single-character shorthand constructors
@@ -73,4 +74,7 @@ pub mod prelude {
         Columns, Component as VectorComponent, Rows, Vector, VectorLike, DIAGONAL_ADJACENCIES,
         ORTHOGONAL_ADJACENCIES, TOUCHING_ADJACENCIES,
     };
+
+    #[doc(inline)]
+    pub use crate::rotation::{Anticlockwise, Clockwise, Rotation};
 }

@@ -2,47 +2,65 @@
 
 use core::ops::{Add, Mul, Neg, Sub};
 
+use crate::rotation::Rotation;
 use crate::vector::{Columns, Rows, Vector, VectorLike};
 
-/// The four cardinal directions (up, down, left, right). [`Direction`]
-/// implements a number of simple helper methods. It also implements
-/// [`VectorLike`], which allows it to be used in contexts where a [`Vector`]
-/// can be used as a unit vector in the given direction (for example, with
-/// Vector arithmetic).
+/// The four cardinal directions: [`Up`], [`Down`], [`Left`], and [`Right`].
+/// [`Direction`] implements a number of simple helper methods. It also
+/// implements [`VectorLike`], which allows it to be used in contexts where
+/// a [`Vector`] can be used as a unit vector in the given direction (for
+/// example, with Vector arithmetic).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     /// The negative row direction
     Up,
+
+    /// The positive column direction
+    Right,
 
     /// The positive row direction
     Down,
 
     /// The negative column direction
     Left,
-
-    /// The positive column direction
-    Right,
 }
 
-pub use Direction::{Down, Left, Right, Up};
+pub use Direction::*;
 
 macro_rules! string_match {
     ($input:expr => $($($pattern:literal)+ => $result:expr;)*) => {
         if false {None}
         $($(
             else if $input.eq_ignore_ascii_case($pattern) {Some($result)}
-        )*)*
+        )+)*
         else {None}
     }
 }
 
 impl Direction {
+    /// Helper function with direction / rotation combination functions.
+    /// Rotations are composable, so it helps to be able to convert a direction
+    /// to a rotation and reuse those compositions. These rotations are defined
+    /// relative to `Up`.
+    #[inline]
+    #[must_use]
+    fn as_rotation(self) -> Rotation {
+        use Rotation::*;
+
+        match self {
+            Up => None,
+            Right => Clockwise,
+            Down => Flip,
+            Left => Anticlockwise,
+        }
+    }
+
     /// Parse a direction name into a direction. Currently supported
     /// names are (case insensitive):
-    /// - `Up`: Up, North, U, N
-    /// - `Down`: Down, South, D, S
-    /// - `Left`: Left, West, L, W
-    /// - `Right`: Right, East, R, E
+    /// - [`Up`]: Up, North, U, N
+    /// - [`Down`]: Down, South, D, S
+    /// - [`Left`]: Left, West, L, W
+    /// - [`Right`]: Right, East, R, E
     ///
     /// # Example
     ///
@@ -210,6 +228,52 @@ impl Direction {
             Down => Right,
             Right => Up,
         }
+    }
+
+    /// Rotate this direction by the given `rotation`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::rotation::*;
+    /// use gridly::direction::*;
+    ///
+    /// assert_eq!(Up.rotate(Clockwise), Right);
+    /// assert_eq!(Down.rotate(Rotation::None), Down);
+    /// assert_eq!(Left.rotate(Anticlockwise), Down);
+    /// assert_eq!(Right.rotate(Rotation::Flip), Left);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn rotate(self, rotation: Rotation) -> Direction {
+        use Rotation::*;
+
+        match rotation {
+            None => self,
+            Flip => self.reverse(),
+            Clockwise => self.clockwise(),
+            Anticlockwise => self.anticlockwise(),
+        }
+    }
+
+    /// Given a `target` direction, get the rotation that rotates this direction
+    /// to that one.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::direction::*;
+    /// use gridly::rotation::*;
+    ///
+    /// assert_eq!(Up.rotation_to(Right), Clockwise);
+    /// assert_eq!(Down.rotation_to(Up), Rotation::Flip);
+    /// assert_eq!(Left.rotation_to(Down), Anticlockwise);
+    /// assert_eq!(Up.rotation_to(Up), Rotation::None);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn rotation_to(self, target: Direction) -> Rotation {
+        target.as_rotation() - self.as_rotation()
     }
 }
 

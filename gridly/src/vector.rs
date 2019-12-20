@@ -11,6 +11,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::direction::*;
 use crate::location::{Column, Component as LocComponent, Row};
+use crate::rotation::Rotation;
 
 /// A [`Rows`] or [`Columns`] component of a [`Vector`]
 ///
@@ -63,6 +64,7 @@ pub trait Component:
     /// assert_eq!(Rows::from_vector(&vec), Rows(4));
     /// assert_eq!(Columns::from_vector(&vec), Columns(5));
     /// ```
+    #[must_use]
     fn from_vector(vector: impl VectorLike) -> Self;
 
     /// Create a vector from a Row and Column
@@ -76,6 +78,7 @@ pub trait Component:
     /// let rows = Rows(2);
     ///
     /// assert_eq!(columns.combine(rows), Vector::new(2, 10));
+    #[must_use]
     fn combine(self, converse: Self::Converse) -> Vector;
 
     /// Get the integer value of this component.
@@ -91,6 +94,7 @@ pub trait Component:
     /// assert_eq!(columns.value(), 10);
     /// assert_eq!(rows.value(), 2);
     /// ```
+    #[must_use]
     fn value(self) -> isize;
 
     // Convert a Row into a Column or vice versa.
@@ -102,6 +106,7 @@ pub trait Component:
     ///
     /// assert_eq!(Rows(10).transpose(), Columns(10));
     /// ```
+    #[must_use]
     fn transpose(self) -> Self::Converse;
 }
 
@@ -138,6 +143,7 @@ macro_rules! make_component {
             type Output = Vector;
 
             #[inline]
+            #[must_use]
             fn add(self, rhs: $Converse) -> Vector {
                 self.combine(rhs)
             }
@@ -147,6 +153,7 @@ macro_rules! make_component {
             type Output = Self;
 
             #[inline]
+            #[must_use]
             fn add(self, rhs: T) -> Self {
                 $Name(self.0 + rhs.into().0)
             }
@@ -163,6 +170,7 @@ macro_rules! make_component {
             type Output = Self;
 
             #[inline]
+            #[must_use]
             fn sub(self, rhs: T) -> Self {
                 $Name(self.0 - rhs.into().0)
             }
@@ -181,6 +189,7 @@ macro_rules! make_component {
             type Output = Self;
 
             #[inline]
+            #[must_use]
             fn mul(self, factor: T) -> Self {
                 $Name(self.0 * factor)
             }
@@ -199,6 +208,7 @@ macro_rules! make_component {
             type Output = Self;
 
             #[inline]
+            #[must_use]
             fn neg(self) -> Self {
                 $Name(-self.0)
             }
@@ -206,6 +216,7 @@ macro_rules! make_component {
 
         impl From<isize> for $Name {
             #[inline]
+            #[must_use]
             fn from(value: isize) -> Self {
                 $Name(value)
             }
@@ -213,6 +224,7 @@ macro_rules! make_component {
 
         impl PartialEq<isize> for $Name {
             #[inline]
+            #[must_use]
             fn eq(&self, rhs: &isize) -> bool {
                 self.0 == *rhs
             }
@@ -220,44 +232,60 @@ macro_rules! make_component {
 
         impl PartialOrd<isize> for $Name {
             #[inline]
+            #[must_use]
             fn partial_cmp(&self, rhs: &isize) -> Option<Ordering> {
                 self.0.partial_cmp(rhs)
             }
 
             #[inline]
+            #[must_use]
             fn lt(&self, rhs: &isize) -> bool { self.0 < *rhs }
+
             #[inline]
+            #[must_use]
             fn le(&self, rhs: &isize) -> bool { self.0 <= *rhs }
+
             #[inline]
+            #[must_use]
             fn ge(&self, rhs: &isize) -> bool { self.0 >= *rhs }
+
             #[inline]
+            #[must_use]
             fn gt(&self, rhs: &isize) -> bool { self.0 > *rhs }
         }
 
         /// A [`Rows`] or a [`Columns`] value can be treated as a [`Vector`]
         /// where the converse component is 0.
         impl VectorLike for $Name {
-            #[inline]
+            #[inline(always)]
+            #[must_use]
             fn $lower_name(&self) -> $Name {
                 *self
             }
 
             #[inline(always)]
+            #[must_use]
             fn $lower_converse(&self) -> $Converse {
                 $Converse(0)
             }
 
             #[inline]
+            #[must_use]
             fn as_vector(&self) -> Vector {
-                self.combine($Converse(0))
+                Vector {
+                    $lower_name: *self,
+                    $lower_converse: $Converse(0),
+                }
             }
 
             #[inline]
+            #[must_use]
             fn manhattan_length(&self) -> isize {
                 self.0.abs()
             }
 
             #[inline]
+            #[must_use]
             fn checked_manhattan_length(&self) -> Option<isize> {
                 self.0.checked_abs()
             }
@@ -265,25 +293,30 @@ macro_rules! make_component {
 
         impl VectorLike for ($Name, $Converse) {
             #[inline]
+            #[must_use]
             fn $lower_name(&self) -> $Name {
                 self.0
             }
 
             #[inline]
+            #[must_use]
             fn $lower_converse(&self) -> $Converse {
                 self.1
             }
 
             #[inline]
+            #[must_use]
             fn as_vector(&self) -> Vector {
-                self.0.combine(self.1)
+                Vector {
+                    $lower_name: self.0,
+                    $lower_converse: self.1,
+                }
             }
         }
 
         impl Sum for $Name {
             fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
-                // TODO: is it better to do iter.map(value.0).sum()?
-                iter.fold($Name(0), Add::add)
+                $Name(iter.map($Name::value).sum())
             }
         }
 
@@ -298,11 +331,13 @@ macro_rules! make_component {
             type Point = $Point;
 
             #[inline]
+            #[must_use]
             fn from_vector(vector: impl VectorLike) -> Self {
                 vector.$lower_name()
             }
 
             #[inline]
+            #[must_use]
             fn combine(self, other: $Converse) -> Vector {
                 Vector {
                     $lower_name: self,
@@ -311,11 +346,13 @@ macro_rules! make_component {
             }
 
             #[inline]
+            #[must_use]
             fn value(self) -> isize {
                 self.0
             }
 
             #[inline]
+            #[must_use]
             fn transpose(self) -> Self::Converse {
                 $Converse(self.0)
             }
@@ -421,6 +458,8 @@ impl Vector {
     /// Function for creating a new const vector. This is private for now; we're
     /// going to transition `new` to const once const methods in traits become
     /// available.
+    #[inline]
+    #[must_use]
     const fn new_const(rows: isize, columns: isize) -> Self {
         Vector {
             rows: Rows(rows),
@@ -428,7 +467,23 @@ impl Vector {
         }
     }
 
-    /// Create a new `Vector`
+    /// Create a new `Vector` with the given `rows` and `columns`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// assert_eq!(
+    ///     Vector::new(3, 4),
+    ///     Vector {
+    ///         rows: Rows(3),
+    ///         columns: Columns(4),
+    ///     },
+    /// );
+    /// ```
+    #[inline]
+    #[must_use]
     pub fn new(rows: impl Into<Rows>, columns: impl Into<Columns>) -> Self {
         Vector {
             rows: rows.into(),
@@ -437,6 +492,16 @@ impl Vector {
     }
 
     /// Create a zero `Vector`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// assert_eq!(Vector::zero(), Vector::new(0, 0));
+    /// ```
+    #[inline]
+    #[must_use]
     pub const fn zero() -> Vector {
         Vector::new_const(0, 0)
     }
@@ -448,6 +513,8 @@ impl Vector {
     ///
     /// assert_eq!(Vector::upward(5), Vector::new(-5, 0))
     /// ```
+    #[inline]
+    #[must_use]
     pub const fn upward(size: isize) -> Vector {
         Vector::new_const(-size, 0)
     }
@@ -459,6 +526,8 @@ impl Vector {
     ///
     /// assert_eq!(Vector::downward(5), Vector::new(5, 0))
     /// ```
+    #[inline]
+    #[must_use]
     pub const fn downward(size: isize) -> Vector {
         Vector::new_const(size, 0)
     }
@@ -470,6 +539,8 @@ impl Vector {
     ///
     /// assert_eq!(Vector::leftward(5), Vector::new(0, -5))
     /// ```
+    #[inline]
+    #[must_use]
     pub const fn leftward(size: isize) -> Vector {
         Vector::new_const(0, -size)
     }
@@ -481,6 +552,8 @@ impl Vector {
     ///
     /// assert_eq!(Vector::rightward(5), Vector::new(0, 5))
     /// ```
+    #[inline]
+    #[must_use]
     pub const fn rightward(size: isize) -> Vector {
         Vector::new_const(0, size)
     }
@@ -492,24 +565,62 @@ impl Vector {
     ///
     /// assert_eq!(Vector::in_direction(Up, 10), Vector::new(-10, 0));
     /// ```
+    #[inline]
+    #[must_use]
     pub fn in_direction(direction: Direction, length: isize) -> Vector {
         direction.sized_vec(length)
     }
 }
 
+/// [`VectorLike`] is implemented for types that can be used as a vector. They
+/// can participate in vector arithmetic, comparison, and other vector oprations.
 pub trait VectorLike: Sized {
+    #[must_use]
     fn rows(&self) -> Rows;
+
+    #[must_use]
     fn columns(&self) -> Columns;
+
+    #[must_use]
     fn as_vector(&self) -> Vector;
 
     /// Return the manhattan length of the vector. The manhattan length
     /// of a vector is the sum of the absolute values of its components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(-8, 3);
+    /// assert_eq!(vec.manhattan_length(), 11);
+    /// ```
+    #[inline]
+    #[must_use]
     fn manhattan_length(&self) -> isize {
         self.rows().0.abs() + self.columns().0.abs()
     }
 
-    /// Return the manhatten length of the vector, or `None` if there are
+    /// Return the manhattan length of the vector, or `None` if there are
     /// any overflows.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::isize;
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(isize::MIN, 0);
+    /// assert_eq!(vec.checked_manhattan_length(), None);
+    ///
+    /// let vec = Vector::new(isize::MAX, isize::MAX);
+    /// assert_eq!(vec.checked_manhattan_length(), None);
+    ///
+    /// let vec = Vector::new(-54, 30);
+    /// assert_eq!(vec.checked_manhattan_length(), Some(84));
+    /// ```
+    #[inline]
+    #[must_use]
     fn checked_manhattan_length(&self) -> Option<isize> {
         let rows = self.rows().0.checked_abs()?;
         let columns = self.columns().0.checked_abs()?;
@@ -517,6 +628,17 @@ pub trait VectorLike: Sized {
     }
 
     /// Return a new vector, rotated 90 degrees clockwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(3, 8);
+    /// assert_eq!(vec.clockwise(), Vector::new(8, -3));
+    /// ```
+    #[inline]
+    #[must_use]
     fn clockwise(&self) -> Vector {
         // (-1, 0) -> (0, 1) -> (1, 0) -> (0, -1)
         Vector {
@@ -526,6 +648,17 @@ pub trait VectorLike: Sized {
     }
 
     /// Return a new vector, rotated 90 degrees counterclockwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(-2, -4);
+    /// assert_eq!(vec.anticlockwise(), Vector::new(4, -2));
+    /// ```
+    #[inline]
+    #[must_use]
     fn anticlockwise(&self) -> Vector {
         Vector {
             rows: -self.columns().transpose(),
@@ -533,7 +666,18 @@ pub trait VectorLike: Sized {
         }
     }
 
-    // Return a new vector, facing the opposite direction of this one
+    /// Return a new vector, facing the opposite direction of this one
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(4, -5);
+    /// assert_eq!(vec.reverse(), Vector::new(-4, 5));
+    /// ```
+    #[inline]
+    #[must_use]
     fn reverse(&self) -> Vector {
         Vector {
             rows: -self.rows(),
@@ -541,12 +685,65 @@ pub trait VectorLike: Sized {
         }
     }
 
+    /// Return a new vector, rotated by a given rotation
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    /// use gridly::rotation::{Clockwise, Anticlockwise};
+    ///
+    /// let vec = Vector::new(-5, 3);
+    ///
+    /// assert_eq!(vec.rotate(Clockwise), vec.clockwise());
+    /// assert_eq!(vec.rotate(Anticlockwise), vec.anticlockwise());
+    /// ```
+    #[inline]
+    #[must_use]
+    fn rotate(&self, rotation: Rotation) -> Vector {
+        use Rotation::*;
+
+        match rotation {
+            None => self.as_vector(),
+            Flip => self.reverse(),
+            Clockwise => self.clockwise(),
+            Anticlockwise => self.anticlockwise(),
+        }
+    }
+
     /// Generically get either the `Rows` or `Columns` of a vector
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(-3, 4);
+    ///
+    /// let rows: Rows = vec.get_component();
+    /// let columns: Columns = vec.get_component();
+    ///
+    /// assert_eq!(rows, Rows(-3));
+    /// assert_eq!(columns, Columns(4));
+    /// ```
+    #[inline]
+    #[must_use]
     fn get_component<T: Component>(&self) -> T {
         T::from_vector(self)
     }
 
     /// Swap the rows and columns of this Vector
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    ///
+    /// let vec = Vector::new(2, 8);
+    /// assert_eq!(vec.transpose(), Vector::new(8, 2));
+    /// ```
+    #[inline]
+    #[must_use]
     fn transpose(&self) -> Vector {
         Vector {
             rows: self.columns().transpose(),
@@ -556,6 +753,22 @@ pub trait VectorLike: Sized {
 
     /// If the vector is pointing in an orthogonal direction, return
     /// that direction
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gridly::vector::*;
+    /// use gridly::direction::*;
+    ///
+    /// assert_eq!(Vector::new(3, 0).direction(), Some(Down));
+    /// assert_eq!(Vector::new(0, 2).direction(), Some(Right));
+    /// assert_eq!(Vector::new(-10, 0).direction(), Some(Up));
+    /// assert_eq!(Vector::new(0, -1).direction(), Some(Left));
+    /// assert_eq!(Vector::zero().direction(), None);
+    /// assert_eq!(Vector::new(3, 4).direction(), None);
+    /// ```
+    #[inline]
+    #[must_use]
     fn direction(&self) -> Option<Direction> {
         let vec = self.as_vector();
         match (vec.rows.0, vec.columns.0) {
@@ -570,16 +783,19 @@ pub trait VectorLike: Sized {
 
 impl VectorLike for Vector {
     #[inline]
+    #[must_use]
     fn rows(&self) -> Rows {
         self.rows
     }
 
     #[inline]
+    #[must_use]
     fn columns(&self) -> Columns {
         self.columns
     }
 
     #[inline]
+    #[must_use]
     fn as_vector(&self) -> Vector {
         *self
     }
@@ -587,16 +803,19 @@ impl VectorLike for Vector {
 
 impl VectorLike for (isize, isize) {
     #[inline]
+    #[must_use]
     fn rows(&self) -> Rows {
         Rows(self.0)
     }
 
     #[inline]
+    #[must_use]
     fn columns(&self) -> Columns {
         Columns(self.1)
     }
 
     #[inline]
+    #[must_use]
     fn as_vector(&self) -> Vector {
         Vector::new(self.0, self.1)
     }
@@ -604,18 +823,75 @@ impl VectorLike for (isize, isize) {
 
 impl<T: VectorLike> VectorLike for &T {
     #[inline]
+    #[must_use]
     fn rows(&self) -> Rows {
         T::rows(self)
     }
 
     #[inline]
+    #[must_use]
     fn columns(&self) -> Columns {
         T::columns(self)
     }
 
     #[inline]
+    #[must_use]
     fn as_vector(&self) -> Vector {
         T::as_vector(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn manhattan_length(&self) -> isize {
+        T::manhattan_length(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn checked_manhattan_length(&self) -> Option<isize> {
+        T::checked_manhattan_length(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn clockwise(&self) -> Vector {
+        T::clockwise(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn anticlockwise(&self) -> Vector {
+        T::anticlockwise(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn reverse(&self) -> Vector {
+        T::reverse(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn rotate(&self, rotation: Rotation) -> Vector {
+        T::rotate(self, rotation)
+    }
+
+    #[inline]
+    #[must_use]
+    fn get_component<C: Component>(&self) -> C {
+        T::get_component(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn transpose(&self) -> Vector {
+        T::transpose(self)
+    }
+
+    #[inline]
+    #[must_use]
+    fn direction(&self) -> Option<Direction> {
+        T::direction(self)
     }
 }
 
@@ -623,6 +899,7 @@ impl<T: VectorLike> Add<T> for Vector {
     type Output = Vector;
 
     #[inline]
+    #[must_use]
     fn add(self, rhs: T) -> Vector {
         let rhs = rhs.as_vector();
         Vector {
@@ -783,6 +1060,7 @@ where
     type Output = Vector;
 
     #[inline]
+    #[must_use]
     fn mul(self, factor: T) -> Vector {
         Vector {
             rows: self.rows * factor,
@@ -822,6 +1100,7 @@ impl Neg for Vector {
     type Output = Vector;
 
     #[inline]
+    #[must_use]
     fn neg(self) -> Vector {
         self.reverse()
     }
@@ -834,6 +1113,8 @@ fn test_neg() {
 }
 
 impl<T: VectorLike> PartialEq<T> for Vector {
+    #[inline]
+    #[must_use]
     fn eq(&self, rhs: &T) -> bool {
         let rhs = rhs.as_vector();
         self.rows == rhs.rows && self.columns == rhs.columns
@@ -865,6 +1146,8 @@ fn test_eq() {
 }
 
 impl<T: VectorLike> PartialOrd<T> for Vector {
+    #[inline]
+    #[must_use]
     fn partial_cmp(&self, rhs: &T) -> Option<Ordering> {
         let rhs = rhs.as_vector();
         match (self.rows.cmp(&rhs.rows), self.columns.cmp(&rhs.columns)) {
