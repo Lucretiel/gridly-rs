@@ -15,20 +15,20 @@ pub trait GridMut: Grid {
     /// calling this method. The safe interface to `GridMut` automatically
     /// performs this checking for you.
     #[must_use]
-    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut Self::Item;
+    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut Self::Item;
 
     /// Get a reference to a cell in a grid. Returns an error if the location
     /// is out of bounds with the specific boundary violation.
     #[inline]
     fn get_mut(&mut self, location: impl LocationLike) -> Result<&mut Self::Item, BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.get_unchecked_mut(&loc) })
+            .map(move |loc| unsafe { self.get_unchecked_mut(loc) })
     }
 }
 
 impl<G: GridMut> GridMut for &mut G {
     #[inline]
-    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut Self::Item {
+    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut Self::Item {
         G::get_unchecked_mut(self, location)
     }
 

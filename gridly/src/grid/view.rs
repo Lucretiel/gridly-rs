@@ -29,14 +29,14 @@ pub trait Grid: GridBounds {
     /// Callers must ensure that the location has been bounds-checked before
     /// calling this method. The safe interface to `Grid` automatically performs
     /// this checking for you.
-    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item;
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item;
 
     /// Get a reference to a cell in a grid. Returns an error if the location
     /// is out of bounds with the specific boundary violation.
     #[inline]
     fn get(&self, location: impl LocationLike) -> Result<&Self::Item, BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.get_unchecked(&loc) })
+            .map(move |loc| unsafe { self.get_unchecked(loc) })
     }
 
     /// Get a view of a grid, over its rows or columns. A view of a grid is
@@ -135,7 +135,7 @@ impl<G: Grid> Grid for &G {
     type Item = G::Item;
 
     #[inline]
-    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item {
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
         G::get_unchecked(self, location)
     }
 }
@@ -144,7 +144,7 @@ impl<G: Grid> Grid for &mut G {
     type Item = G::Item;
 
     #[inline]
-    unsafe fn get_unchecked(&self, location: &Location) -> &Self::Item {
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
         G::get_unchecked(self, location)
     }
 }
@@ -182,7 +182,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> View<'a, G, T> {
 
     /// Get the length of this view; that is, the number of Rows or Columns
     #[inline]
-    pub fn size(&self) -> T::Distance {
+    pub fn len(&self) -> T::Distance {
         self.grid.dimension()
     }
 
@@ -302,7 +302,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     /// Get the length of this view. For example, for a
     /// `SingleView<'a, G, Row>`, get the number of columns.
     #[inline]
-    pub fn size(&self) -> <T::Converse as LocComponent>::Distance {
+    pub fn len(&self) -> <T::Converse as LocComponent>::Distance {
         self.grid.dimension()
     }
 
@@ -323,7 +323,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
     /// calling this method.
     #[inline]
     pub unsafe fn get_unchecked(&self, cross: T::Converse) -> &'a G::Item {
-        self.grid.get_unchecked(&self.index.combine(cross))
+        self.grid.get_unchecked(self.index.combine(cross))
     }
 
     /// Get a particular cell in the row or column, or return an error if the
@@ -353,7 +353,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
            + Clone {
         let grid = self.grid;
         self.range()
-            .map(move |loc| unsafe { grid.get_unchecked(&loc) })
+            .map(move |loc| unsafe { grid.get_unchecked(loc) })
     }
 
     /// Get an iterator over `(Location, &Item)` pairs for this row or column.
@@ -368,7 +368,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
            + Clone {
         let grid = self.grid;
         self.range()
-            .map(move |loc| (loc, unsafe { grid.get_unchecked(&loc) }))
+            .map(move |loc| (loc, unsafe { grid.get_unchecked(loc) }))
     }
 
     /// Get an iterator over `(Index, &Item)` pairs for this column. For instance,
@@ -385,7 +385,7 @@ impl<'a, G: Grid + ?Sized, T: LocComponent> SingleView<'a, G, T> {
         let grid = self.grid;
 
         self.range()
-            .map(move |loc| (loc.get_component(), unsafe { grid.get_unchecked(&loc) }))
+            .map(move |loc| (loc.get_component(), unsafe { grid.get_unchecked(loc) }))
     }
 }
 
@@ -488,7 +488,7 @@ mod tests {
     impl<T> Grid for ThreeByTwo<T> {
         type Item = T;
 
-        unsafe fn get_unchecked(&self, location: &Location) -> &T {
+        unsafe fn get_unchecked(&self, location: Location) -> &T {
             // Normally we don't need to bounds check the location, but for
             // testing purposes we want to make sure that a location outside
             // the valid bounds never gets through.

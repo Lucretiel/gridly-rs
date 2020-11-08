@@ -3,4 +3,5 @@
 members = [
 	"gridly",
 	"gridly_grids",
+	"gridly_adapters",
 ]

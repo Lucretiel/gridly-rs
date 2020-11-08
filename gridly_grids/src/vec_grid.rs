@@ -17,8 +17,8 @@ impl<T> VecGrid<T> {
     /// grid if the dimensions are valid, or None otherwise. Used as a helper
     /// in the `VecGrid` constructors.
     #[inline]
-    fn get_volume(dimensions: &Vector) -> Option<usize> {
-        if dimensions.rows < 0 || dimensions.columns < 0 {
+    const fn get_volume(dimensions: &Vector) -> Option<usize> {
+        if dimensions.rows.0 < 0 || dimensions.columns.0 < 0 {
             None
         } else {
             (dimensions.rows.0 as usize).checked_mul(dimensions.columns.0 as usize)
@@ -34,7 +34,7 @@ impl<T> VecGrid<T> {
     /// Unsafe because of unchecked conversion to usize after potentially
     /// overflowing operations
     #[inline]
-    const unsafe fn index_for_location(&self, loc: &Location) -> usize {
+    const unsafe fn index_for_location(&self, loc: Location) -> usize {
         // Eagerly cast to usize to minimize the chance for overflow
         (loc.row.0 as usize * self.dimensions.columns.0 as usize) + loc.column.0 as usize
     }
@@ -90,17 +90,19 @@ impl<T> VecGrid<T> {
     /// assert_eq!(grid.get((1, 1)), Ok(&2));
     /// assert!(grid.get((1, 2)).is_err());
     /// ```
-    pub fn new_with(dimensions: impl VectorLike, gen: impl Fn(&Location) -> T) -> Option<Self> {
+    pub fn new_with(dimensions: impl VectorLike, gen: impl Fn(Location) -> T) -> Option<Self> {
         let dimensions = dimensions.as_vector();
         let columns = dimensions.columns;
 
         let mut storage = Vec::with_capacity(Self::get_volume(&dimensions)?);
 
+        let column_span = Column(0).span(columns);
+
         storage.extend(
             Row(0)
                 .span(dimensions.rows)
-                .flat_map(move |row| Column(0).span(columns).cross(row))
-                .map(move |loc| gen(&loc)),
+                .flat_map(move |row| column_span.clone().cross(row))
+                .map(gen),
         );
 
         Some(VecGrid {
@@ -115,6 +117,9 @@ impl<T> VecGrid<T> {
     /// the iterator was too short, or if the dimensions were invalid. If the
     /// iterator is longer than required, the remaining elements are left
     /// uniterated.
+    ///
+    /// This method will return prematurely if the iterator reports (via
+    /// `size_hint`) that it is definitely too short.
     ///
     /// # Example:
     ///
@@ -145,6 +150,13 @@ impl<T> VecGrid<T> {
     ) -> Option<Self> {
         let dimensions = dimensions.as_vector();
         let volume = Self::get_volume(&dimensions)?;
+        let iter = input.into_iter();
+
+        if let Some(max) = iter.size_hint().1 {
+            if max < volume {
+                return None;
+            }
+        }
 
         // We could just input.collect(), but the iterator may have a size_hint
         // lower bound of 0, so we want to make sure we preallocate. Arguably,
@@ -153,16 +165,16 @@ impl<T> VecGrid<T> {
         // to overallocate unnecessary. However, we assume the fast path is
         // that it usually will finish.
         let mut storage = Vec::with_capacity(volume);
-        storage.extend(input.into_iter().take(volume));
+        storage.extend(iter.take(volume));
 
         if storage.len() != volume {
-            None
-        } else {
-            Some(VecGrid {
-                dimensions,
-                storage,
-            })
+            return None;
         }
+
+        Some(VecGrid {
+            dimensions,
+            storage,
+        })
     }
 
     /// Create a new `VecGrid` from an iterator of rows. Each row should be
@@ -234,7 +246,10 @@ impl<T> VecGrid<T> {
             Some(first_row) => {
                 let first_row = first_row.into_iter();
 
+                // Estimate the number of additional rows in the input
                 let est_remaining_rows = rows.size_hint().0;
+
+                // Estimate the number of columns in the grid
                 let est_row_width = first_row.size_hint().0;
 
                 let mut storage = Vec::new();
@@ -505,7 +520,7 @@ impl<T> GridBounds for VecGrid<T> {
 impl<T> Grid for VecGrid<T> {
     type Item = T;
 
-    unsafe fn get_unchecked(&self, location: &Location) -> &T {
+    unsafe fn get_unchecked(&self, location: Location) -> &T {
         self.storage
             .get_unchecked(self.index_for_location(location))
     }
@@ -530,19 +545,19 @@ impl<T, L: LocationLike> IndexMut<L> for VecGrid<T> {
 }
 
 impl<T> GridSetter for VecGrid<T> {
-    unsafe fn replace_unchecked(&mut self, location: &Location, value: T) -> T {
+    unsafe fn replace_unchecked(&mut self, location: Location, value: T) -> T {
         let index = self.index_for_location(location);
         replace(self.storage.get_unchecked_mut(index), value)
     }
 
-    unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
+    unsafe fn set_unchecked(&mut self, location: Location, value: T) {
         let index = self.index_for_location(location);
         *self.storage.get_unchecked_mut(index) = value;
     }
 }
 
 impl<T> GridMut for VecGrid<T> {
-    unsafe fn get_unchecked_mut(&mut self, location: &Location) -> &mut T {
+    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut T {
         let index = self.index_for_location(location);
         self.storage.get_unchecked_mut(index)
     }

@@ -21,7 +21,7 @@ pub trait GridSetter: Grid {
     /// calling this method. The safe interface to `Grid` automatically performs
     /// this checking for you.
     #[must_use = "discarded return value of replace_unchecked; consider using set_unchecked"]
-    unsafe fn replace_unchecked(&mut self, location: &Location, value: Self::Item) -> Self::Item;
+    unsafe fn replace_unchecked(&mut self, location: Location, value: Self::Item) -> Self::Item;
 
     /// Replace the value at the given `location` with `value`, without bounds
     /// checking `location`.
@@ -35,7 +35,7 @@ pub trait GridSetter: Grid {
     /// Callers must ensure that the location has been bounds-checked before
     /// calling this method. The safe interface to `Grid` automatically performs
     /// this checking for you.
-    unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item);
+    unsafe fn set_unchecked(&mut self, location: Location, value: Self::Item);
 
     /// Replace the value at the given `location` with `value`. Returns the
     /// previous value in the grid, or an error if the location was out of
@@ -47,7 +47,7 @@ pub trait GridSetter: Grid {
         value: Self::Item,
     ) -> Result<Self::Item, BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.replace_unchecked(&loc, value) })
+            .map(move |loc| unsafe { self.replace_unchecked(loc, value) })
     }
 
     /// Set the value at the given `location` in the grid. Returns an error
@@ -55,18 +55,18 @@ pub trait GridSetter: Grid {
     #[inline]
     fn set(&mut self, location: impl LocationLike, value: Self::Item) -> Result<(), BoundsError> {
         self.check_location(location)
-            .map(move |loc| unsafe { self.set_unchecked(&loc, value) })
+            .map(move |loc| unsafe { self.set_unchecked(loc, value) })
     }
 }
 
 impl<G: GridSetter> GridSetter for &mut G {
     #[inline]
-    unsafe fn replace_unchecked(&mut self, location: &Location, value: Self::Item) -> Self::Item {
+    unsafe fn replace_unchecked(&mut self, location: Location, value: Self::Item) -> Self::Item {
         G::replace_unchecked(self, location, value)
     }
 
     #[inline]
-    unsafe fn set_unchecked(&mut self, location: &Location, value: Self::Item) {
+    unsafe fn set_unchecked(&mut self, location: Location, value: Self::Item) {
         G::set_unchecked(self, location, value)
     }
 
@@ -99,7 +99,7 @@ mod tests {
     }
 
     impl<T> SimpleGrid<T> {
-        fn index_of(loc: &Location) -> usize {
+        fn index_of(loc: Location) -> usize {
             match (loc.row.0, loc.column.0) {
                 (0, 0) => 0,
                 (0, 1) => 1,
@@ -123,20 +123,20 @@ mod tests {
     impl<T> Grid for SimpleGrid<T> {
         type Item = T;
 
-        unsafe fn get_unchecked(&self, location: &Location) -> &T {
+        unsafe fn get_unchecked(&self, location: Location) -> &T {
             self.cells.get_unchecked(Self::index_of(location))
         }
     }
 
     impl<T> GridSetter for SimpleGrid<T> {
-        unsafe fn replace_unchecked(&mut self, location: &Location, value: T) -> T {
+        unsafe fn replace_unchecked(&mut self, location: Location, value: T) -> T {
             replace(
                 self.cells.get_unchecked_mut(Self::index_of(location)),
                 value,
             )
         }
 
-        unsafe fn set_unchecked(&mut self, location: &Location, value: T) {
+        unsafe fn set_unchecked(&mut self, location: Location, value: T) {
             *self.cells.get_unchecked_mut(Self::index_of(location)) = value;
         }
     }
