@@ -1,0 +1,17 @@
+[package]
+name = "gridly_adapters"
+version = "0.1.0"
+authors = ["Nathan West <Lucretiel@gmail.com>"]
+edition = "2018"
+readme = "README.md"
+license = "MPL-2.0"
+description = "Adapters for gridly grids"
+repository = "https://github.com/Lucretiel/gridly-rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gridly = { path = "../gridly", version = "0.9.0" }
+
+[dev-dependencies]
+gridly_grids = { path = "../gridly_grids", version = "0.4.0" }
