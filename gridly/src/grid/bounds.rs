@@ -312,6 +312,22 @@ impl Display for BoundsError {
     }
 }
 
+#[cfg(feature = "array_impls")]
+impl<T, const N: usize, const M: usize> GridBounds for [[T; M]; N] {
+    #[inline]
+    fn dimensions(&self) -> Vector {
+        assert!(M <= core::isize::MAX as usize);
+        assert!(N <= core::isize::MAX as usize);
+
+        Vector::new(N as isize, M as isize)
+    }
+
+    #[inline]
+    fn root(&self) -> Location {
+        Location::new(0, 0)
+    }
+}
+
 // TODO: Add this when we figure out how to make it compatible with no_std
 /*
 impl<T: Component> Error for BoundsError {

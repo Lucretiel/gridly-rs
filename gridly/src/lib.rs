@@ -1,3 +1,4 @@
+#![cfg_attr(feature = "array_impls", feature(min_const_generics))]
 #![no_std]
 
 pub mod direction;
