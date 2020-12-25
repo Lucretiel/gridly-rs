@@ -2,6 +2,7 @@ use crate::grid::bounds::BoundsError;
 use crate::grid::Grid;
 use crate::location::{Location, LocationLike};
 
+
 /// Setter trait for grids. Allows setting and replacing elements in the grid.
 /// Implementors should implement the unsafe [setter][GridSetter::set_unchecked]
 /// and [replacer][GridSetter::replace_unchecked] methods. This trait then
@@ -82,6 +83,19 @@ impl<G: GridSetter> GridSetter for &mut G {
     #[inline]
     fn set(&mut self, location: impl LocationLike, value: Self::Item) -> Result<(), BoundsError> {
         G::set(self, location, value)
+    }
+}
+
+#[cfg(feature="array_impls")]
+impl<T, const N: usize, const M: usize> GridSetter for [[T; M]; N] {
+    unsafe fn set_unchecked(&mut self, location: Location, value: Self::Item) {
+        use super::GridMut;
+        *self.get_unchecked_mut(location) = value;
+    }
+
+    unsafe fn replace_unchecked(&mut self, location: Location, value: Self::Item) -> Self::Item {
+        use super::GridMut;
+        core::mem::replace(self.get_unchecked_mut(location), value)
     }
 }
 

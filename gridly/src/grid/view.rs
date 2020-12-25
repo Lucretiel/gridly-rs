@@ -461,6 +461,18 @@ where
     }
 }
 
+#[cfg(feature = "array_impls")]
+impl<T: Sized, const N: usize, const M: usize> Grid for [[T; M]; N] {
+    type Item = T;
+
+    #[inline]
+    unsafe fn get_unchecked(&self, location: Location) -> &Self::Item {
+        self[..]
+            .get_unchecked(location.row.0 as usize)
+            .get_unchecked(location.column.0 as usize)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::grid::BoundsError;
@@ -495,7 +507,7 @@ mod tests {
             assert!(location.row.0 >= -1 && location.row.0 <= 1);
             assert!(location.column.0 >= 0 && location.column.0 <= 1);
 
-            self.rows
+            self.rows[..]
                 .get_unchecked((location.row.0 + 1) as usize)
                 .get_unchecked(location.column.0 as usize)
         }
@@ -553,6 +565,20 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "array_impls")]
+    #[test]
+    fn test_array() {
+        // test array impls
+        let mut arr = [[1i32, 2, 3], [4, 5, 6]];
+
+        assert_eq!(arr.dimensions(), Vector::new(2, 3));
+        assert_eq!(arr.root(), Location::new(0, 0));
+        assert_eq!(arr.get(Location::new(1, 1)), Ok(&5));
+        *arr.get_mut(Row(0) + Column(2)).expect("out of range") = 10;
+        arr.set(Row(1) + Column(0), 20).expect("out of range");
+        assert_eq!(arr, [[1, 2, 10], [20, 5, 6]]);
     }
 
     /*

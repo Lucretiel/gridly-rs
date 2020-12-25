@@ -19,3 +19,6 @@ maintenance = { status = "actively-developed" }
 
 [dev-dependencies]
 cool_asserts = "1.0.0"
+
+[features]
+array_impls = []
