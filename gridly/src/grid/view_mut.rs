@@ -42,12 +42,3 @@ impl<G: GridMut> GridMut for &mut G {
 // TODO: modify this trait to support extra behavior when references are dropped
 // (for instance, to allow clearing sparse grids). This will need to wait for
 // HKTs or GATs
-
-#[cfg(feature = "array_impls")]
-impl<T, const N: usize, const M: usize> GridMut for [[T; M]; N] {
-    #[inline]
-    unsafe fn get_unchecked_mut(&mut self, location: Location) -> &mut Self::Item {
-        self[..].get_unchecked_mut(location.row.0 as usize)
-                .get_unchecked_mut(location.column.0 as usize)
-    }
-}

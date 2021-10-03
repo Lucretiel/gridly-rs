@@ -1,8 +1,8 @@
-#![cfg_attr(feature = "array_impls", feature(min_const_generics))]
 #![no_std]
 
 pub mod direction;
 pub mod grid;
+pub mod grids;
 pub mod location;
 pub mod range;
 pub mod rotation;
