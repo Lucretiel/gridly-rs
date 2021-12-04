@@ -16,7 +16,7 @@ use gridly::prelude::*;
 ///
 /// Whenever possible, cells that are set to the default value (as determined by
 /// `PartialEq`) will be removed from the hash table. Conversely, getting a
-/// mutable reference to an unnocupied cell will insert a clone of the default
+/// mutable reference to an unoccupied cell will insert a clone of the default
 /// at that location, which can then be mutated.
 ///
 /// Note about interior mutability: When a user gets a reference to an unoccupied
@@ -77,7 +77,7 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
 
     /// Get an iterator over all of the occupied (non-default) entries in the
     /// grid, in an arbitrary order.
-    pub fn occuppied_entries(
+    pub fn occupied_entries(
         &self,
     ) -> impl Iterator<Item = (&Location, &T)> + FusedIterator + Clone {
         let default = &self.default;
@@ -88,7 +88,7 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
 
     /// Get an iterator of mutable references to the occupied (non-default)
     /// entries in the grid, in an arbitrary order.
-    pub fn occuppied_entries_mut(
+    pub fn occupied_entries_mut(
         &mut self,
     ) -> impl Iterator<Item = (&Location, &mut T)> + FusedIterator {
         let default = &self.default;
@@ -100,11 +100,11 @@ impl<T: Clone + PartialEq> SparseGrid<T> {
     /// Get an iterator of mutable references to the occupied (non-default)
     /// entries in the grid, in an arbitrary order.
     ///
-    /// The difference between this method and `occuppied_entries_mut` is that
+    /// The difference between this method and `occupied_entries_mut` is that
     /// this one first [cleans](SparseGrid::clean) the underlying storage.
     /// This means there's a higher up-front cost, but has the benefit of
     /// providing an `ExactSizeIterator`.
-    pub fn occuppied_entries_mut_cleaned(
+    pub fn occupied_entries_mut_cleaned(
         &mut self,
     ) -> impl Iterator<Item = (&Location, &mut T)> + FusedIterator + ExactSizeIterator {
         self.clean();
