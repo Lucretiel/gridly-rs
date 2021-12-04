@@ -1,15 +1,13 @@
 [package]
 name = "gridly_grids"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Nathan West <Lucretiel@gmail.com>"]
 edition = "2018"
 description = "Some basic implementations of gridly grids"
 license = "MPL-2.0"
 repository = "https://github.com/Lucretiel/gridly-rs"
 readme = "README.md"
-categories = [
-	"games"
-]
+categories = ["games"]
 
 [dependencies]
 brownstone = "1.1.0"
