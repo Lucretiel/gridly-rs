@@ -116,7 +116,7 @@ impl<T> VecGrid<T> {
     /// row, etc) by evaluating the input iterator. Returns None if
     /// the iterator was too short, or if the dimensions were invalid. If the
     /// iterator is longer than required, the remaining elements are left
-    /// uniterated.
+    /// un-iterated.
     ///
     /// This method will return prematurely if the iterator reports (via
     /// `size_hint`) that it is definitely too short.
@@ -162,7 +162,7 @@ impl<T> VecGrid<T> {
         // lower bound of 0, so we want to make sure we preallocate. Arguably,
         // we should let the Vec manage its own storage, because a size_hint
         // lower bound of zero means that it may not finish, and we don't want
-        // to overallocate unnecessary. However, we assume the fast path is
+        // to over-allocate unnecessary. However, we assume the fast path is
         // that it usually will finish.
         let mut storage = Vec::with_capacity(volume);
         storage.extend(iter.take(volume));
@@ -220,7 +220,7 @@ impl<T> VecGrid<T> {
     /// assert_eq!(grid.dimensions(), (0, 0));
     /// ```
     ///
-    /// ## Mistmatched row length example
+    /// ## Mismatched row length example
     ///
     /// ```
     /// use gridly_grids::VecGrid;
@@ -329,7 +329,7 @@ impl<T> VecGrid<T> {
     /// That is, fill the first row, then the next row, etc.
     ///
     /// If the iterator is longer than the volume of the grid, the
-    /// remaining elements are left uniterated. If the iterator is shorter
+    /// remaining elements are left un-iterated. If the iterator is shorter
     /// than the volume of the grid, the remaining existing elements in the
     /// grid are left unaltered.
     ///
@@ -389,7 +389,7 @@ impl<T: Default> VecGrid<T> {
     /// dimensions were invalid. If the iterator is shorter than required to
     /// fill the grid, the remaining elements are filled with `T::default`.
     /// If the iterator is longer than required, the remaining elements are
-    /// left uniterated.
+    /// left un-iterated.
     ///
     /// # Example:
     ///
@@ -456,7 +456,7 @@ impl<T: Clone> VecGrid<T> {
     /// assert!(grid.get((1, 2)).is_err());
     /// ```
     pub fn new_fill(dimensions: impl VectorLike, value: &T) -> Option<Self> {
-        Self::new_fill_with(dimensions, move || value.clone())
+        Self::new_fill_with(dimensions, || value.clone())
     }
 
     /// Fill every element in the grid with clones of `value`.
@@ -477,7 +477,7 @@ impl<T: Clone> VecGrid<T> {
     /// assert!(grid.get((1, 2)).is_err());
     /// ```
     pub fn fill(&mut self, value: &T) {
-        self.fill_with(move || value.clone())
+        self.fill_with(|| value.clone())
     }
 }
 

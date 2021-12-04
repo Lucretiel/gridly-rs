@@ -3,8 +3,10 @@
 //! as well as serve as a sample implementation for how to implement gridly
 //! grids.
 
+mod array_grid;
 mod sparse_grid;
 mod vec_grid;
 
+pub use array_grid::ArrayGrid;
 pub use sparse_grid::SparseGrid;
 pub use vec_grid::VecGrid;
