@@ -1,4 +1,3 @@
-use core::panic;
 use std::{convert::TryInto, mem};
 
 use gridly::prelude::*;
@@ -21,7 +20,7 @@ impl<T, const R: usize, const C: usize> ArrayGrid<T, R, C> {
     }
 
     pub fn new_fill_with(gen: impl Fn() -> T) -> Self {
-        Self::from_rows(brownstone::build(|| brownstone::build(|| gen())))
+        Self::from_rows(brownstone::build(move || brownstone::build(&gen)))
     }
 
     pub fn new_with(gen: impl Fn(Location) -> T) -> Self {
