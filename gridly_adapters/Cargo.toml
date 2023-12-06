@@ -14,4 +14,4 @@ repository = "https://github.com/Lucretiel/gridly-rs"
 gridly = { path = "../gridly", version = "0.9.0" }
 
 [dev-dependencies]
-gridly_grids = { path = "../gridly_grids", version = "0.4.0" }
+gridly_grids = { path = "../gridly_grids", version = "0.5.0" }

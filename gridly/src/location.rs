@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign};
 
 use crate::direction::Direction;
-use crate::range::ComponentRange;
+use crate::range::{ComponentRange, LocationRange};
 use crate::vector::{Columns, Component as VecComponent, Rows, Vector, VectorLike};
 
 // TODO: add additional implied traits?
@@ -322,18 +322,21 @@ macro_rules! make_component {
 
         #[cfg(test)]
         mod $test {
-            use crate::location::{Location, $Name, $Converse, Component};
-            use crate::vector::{$Distance};
+            use crate::location::{$Converse, $Name, Component, Location};
+            use crate::vector::$Distance;
 
             #[test]
             fn test_combine_converse() {
                 let base = $Name(3);
                 let converse = $Converse(4);
 
-                assert_eq!(base.combine(converse), Location{
-                    $lower_name: base,
-                    $lower_converse: converse,
-                });
+                assert_eq!(
+                    base.combine(converse),
+                    Location {
+                        $lower_name: base,
+                        $lower_converse: converse,
+                    }
+                );
             }
 
             #[test]
@@ -384,7 +387,7 @@ macro_rules! make_component {
                 assert_eq!(remote - origin, $Distance(3));
             }
         }
-    }
+    };
 }
 
 make_component! {Row, Column, Rows, row, column, "row", test_row}
@@ -640,6 +643,44 @@ pub trait LocationLike: Sized {
     #[must_use]
     fn column_ordered(self) -> ColumnOrdered<Self> {
         self.order_by()
+    }
+
+    /// Create a range, starting at this location, with the given length
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    /// use gridly::shorthand::*;
+    ///
+    /// let location = L(1, 2);
+    /// let range = location.span_over(Rows(3));
+    ///
+    /// assert_eq!(range, LocationRange::bounded(Column(2), Row(1), Row(4)));
+    /// ```
+    #[inline]
+    #[must_use]
+    fn span_over<C: VecComponent>(
+        self,
+        distance: C,
+    ) -> LocationRange<<C::Point as Component>::Converse> {
+        LocationRange::rooted(self.as_location(), distance)
+    }
+
+    /// Create a range, starting at this component, ending at the given
+    /// component
+    ///
+    /// ```
+    /// use gridly::prelude::*;
+    /// use gridly::shorthand::*;
+    ///
+    /// let location = L(1, 2);
+    /// let range = location.range_to(Column(6));
+    ///
+    /// assert_eq!(range, LocationRange::bounded(Row(1), Column(2), Column(6)));
+    /// ```
+    #[inline]
+    #[must_use]
+    fn range_to<C: Component>(self, end: C) -> LocationRange<C::Converse> {
+        LocationRange::bounded(self.get_component(), self.get_component(), end)
     }
 }
 
